@@ -37,7 +37,7 @@ jobs:
       - name: Run pylint
         run: |
           pip install pylint
-          pylint asyncvarlink
+          pylint --fail-under 9 asyncvarlink
   pytest:
     runs-on: ubuntu-latest
     strategy:
@@ -52,5 +52,5 @@ jobs:
           allow-prereleases: true
       - name: Run pytest
         run: |
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov .[test]
           pytest --cov=asyncvarlink --cov-fail-under=75 tests

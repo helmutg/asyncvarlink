@@ -1,5 +1,6 @@
 [project]
 name = "asyncvarlink"
+version = "0.0"
 description = "asyncio-compatible, type-driven varlink implementation supporting file descriptor passing"
 authors = [{name = "Helmut Grohne", email = "helmut@subdivi.de"}]
 classifiers = [
@@ -10,6 +11,9 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 requires-python = ">=3.11"
+
+[project.optional-dependencies]
+test = ["hypothesis"]
 
 [tool.black]
 line-length = 79

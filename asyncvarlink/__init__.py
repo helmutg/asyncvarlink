@@ -7,6 +7,9 @@
  * file descriptor passing: Even though the varlink faq says that passing file
    descriptors is out of scope, systemd does this and it and this library
    supports such use.
+ * automatic introspection via type annotations: Rather than having to
+   write a .varlink description file supporting introspection. This is being
+   computed from Python type annotations.
 """
 
 import asyncio
@@ -19,18 +22,11 @@ import os
 import socket
 import typing
 
+from .conversion import *
+from .types import *
+
 
 logger = logging.getLogger("asyncvarlink")
-
-
-# pylint: disable=too-few-public-methods  # It's that one method we describe.
-class HasFileno(typing.Protocol):
-    """A typing protocol representing a file-like object and looking up the
-    underlying file descriptor.
-    """
-
-    def fileno(self) -> int:
-        """Returns the underlying file descriptor."""
 
 
 def _close(thing: HasFileno) -> None:
@@ -45,16 +41,6 @@ def _close(thing: HasFileno) -> None:
         os.close(thing.fileno())
     else:
         closemeth()
-
-
-class FileDescriptor(int):
-    """An integer that happens to represent a file descriptor meant for type
-    checking.
-    """
-
-    def fileno(self) -> int:
-        """Returns the underlying file descriptor, i.e. self."""
-        return self
 
 
 def _check_socket(thing: socket.socket | int | HasFileno) -> HasFileno:
@@ -322,14 +308,6 @@ class VarlinkTransport(asyncio.BaseTransport):
 
     def is_closing(self) -> bool:
         return self._closing
-
-
-JSONValue = typing.Union[
-    None, bool, float, int, str, list["JSONValue"], "JSONObject"
-]
-
-
-JSONObject = dict[str, JSONValue]
 
 
 class VarlinkProtocol(asyncio.BaseProtocol):

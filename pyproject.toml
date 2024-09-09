@@ -1,0 +1,21 @@
+[project]
+name = "asyncvarlink"
+description = "asyncio-compatible, type-driven varlink implementation supporting file descriptor passing"
+authors = [{name = "Helmut Grohne", email = "helmut@subdivi.de"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: POSIX",
+  "Typing :: Typed",
+  "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.11"
+
+[tool.black]
+line-length = 79
+
+[tool.mypy]
+strict = true
+
+[tool.pylint]
+max-line-length = 79

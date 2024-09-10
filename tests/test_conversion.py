@@ -16,6 +16,7 @@ from asyncvarlink import (
     ListVarlinkType,
     ObjectVarlinkType,
     OptionalVarlinkType,
+    SetVarlinkType,
     SimpleVarlinkType,
     VarlinkType,
 )
@@ -54,6 +55,7 @@ def type_annotations() -> st.SearchStrategy:
         st.just(str),
         st.just(TriState),
         st.just(Digits),
+        st.just(set[str]),
         st.builds(
             lambda fields: typing.TypedDict(
                 "AnonTypedDict",
@@ -87,6 +89,8 @@ def representable(vt: VarlinkType) -> st.SearchStrategy:
         return st.lists(representable(vt._elttype))
     if isinstance(vt, DictVarlinkType):
         return st.dictionaries(st.text(), representable(vt._elttype))
+    if isinstance(vt, SetVarlinkType):
+        return st.sets(st.text())
     if isinstance(vt, ObjectVarlinkType):
         return st.builds(
             dict,

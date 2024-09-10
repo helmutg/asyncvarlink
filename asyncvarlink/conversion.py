@@ -81,6 +81,7 @@ class VarlinkType:
         unknown types to typing.Any/"object".
         """
         origin = typing.get_origin(tobj)
+        args = typing.get_args(tobj)
         if origin is None:
             if isinstance(tobj, type):
                 if issubclass(tobj, bool):
@@ -111,12 +112,8 @@ class VarlinkType:
                     },
                 )
         elif origin is typing.Union or origin is types.UnionType:
-            if any(arg is types.NoneType for arg in typing.get_args(tobj)):
-                remaining = [
-                    alt
-                    for alt in typing.get_args(tobj)
-                    if alt is not types.NoneType
-                ]
+            if any(arg is types.NoneType for arg in args):
+                remaining = [alt for alt in args if alt is not types.NoneType]
                 if remaining:
                     if len(remaining) == 1:
                         result = cls.from_type_annotation(remaining[0])
@@ -130,13 +127,14 @@ class VarlinkType:
                         return result
                     return OptionalVarlinkType(result)
         elif origin is list:
-            args = typing.get_args(tobj)
             if len(args) == 1:
                 return ListVarlinkType(cls.from_type_annotation(args[0]))
         elif origin is dict:
-            args = typing.get_args(tobj)
             if len(args) == 2 and args[0] is str:
                 return DictVarlinkType(cls.from_type_annotation(args[1]))
+        elif origin is set:
+            if len(args) == 1 and args[0] is str:
+                return SetVarlinkType()
         return ForeignVarlinkType()
 
 
@@ -288,6 +286,48 @@ class DictVarlinkType(VarlinkType):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._elttype!r})"
+
+
+class SetVarlinkType(VarlinkType):
+    """A varlink type that represents a set of strings as a map on the varlink
+    side.
+    """
+
+    as_type = set[str]
+    as_varlink = "[string]()"
+
+    def tojson(
+        self, obj: typing.Any, oobstate: OOBTypeState = None
+    ) -> JSONValue:
+        if not isinstance(obj, set):
+            raise ConversionError.expected("set", obj)
+        result: dict[str, JSONValue] = {}
+        for elem in obj:
+            if not isinstance(elem, str):
+                raise ConversionError.expected("str as set element", elem)
+            # Assign an empty struct as value.
+            result[elem] = {}
+        return result
+
+    def fromjson(
+        self, obj: JSONValue, oobstate: OOBTypeState = None
+    ) -> typing.Any:
+        if not isinstance(obj, dict):
+            raise ConversionError.expected("map", obj)
+        result = set()
+        for key, value in obj.items():
+            if not isinstance(key, str):
+                raise ConversionError.expected("string as map key", key)
+            if value != {}:
+                with ConversionError.context(key):
+                    raise ConversionError.expected(
+                        "empty struct as map value", value
+                    )
+            result.add(key)
+        return result
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
 
 
 class ObjectVarlinkType(VarlinkType):

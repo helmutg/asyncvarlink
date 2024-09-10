@@ -163,3 +163,82 @@ def varlinksignature(
     """
     # Wrap the access in getattr as that makes mypy and pylint a lot happier.
     return getattr(method, "_varlink_signature", None)
+
+
+class VarlinkInterface:
+    """A base class for varlink interface implementations.
+
+    Deriving classes should set the name class attribute to the interface name
+    and mark the interface methods with the varlinkmethod decorator.
+    """
+
+    name: str
+    """The name of the varlink interface in dotted reverse domain notation."""
+
+    def render_interface_description(self) -> str:
+        """Render a varlink interface description from this interface.
+        Refer to https://varlink.org/Interface-Definition.
+        """
+        lines = [f"interface {self.name}", ""]
+        for name in dir(self):
+            obj = getattr(self, name)
+            if (signature := varlinksignature(obj)) is None:
+                continue
+            param_desc = ", ".join(
+                f"{name}: {vtype.as_varlink}"
+                for name, vtype in signature.parameter_types.items()
+            )
+            lines.append(
+                f"method {name}({param_desc}) -> "
+                f"{signature.return_type.as_varlink}"
+            )
+        lines.append("")
+        return "".join(lines)
+
+
+class VarlinkServiceInterface(VarlinkInterface):
+    """Implementation of the basic varlink introspection interface."""
+
+    name = "org.varlink.service"
+
+    class _GetInfoResult(typing.TypedDict):
+        vendor: str
+        product: str
+        version: str
+        url: str
+        interfaces: list[str]
+
+    def __init__(self, vendor: str, product: str, version: str, url: str):
+        """Construct an introspection interface object from the given
+        metadata.
+        """
+        self._info: VarlinkServiceInterface._GetInfoResult = {
+            "vendor": vendor,
+            "product": product,
+            "version": version,
+            "url": url,
+            "interfaces": [],
+        }
+        self._interfaces: dict[str, VarlinkInterface] = {}
+
+    def register(self, interface: VarlinkInterface) -> None:
+        """Register a VarlinkInterface instance with the introspection
+        interface such that its GetInfo method will list the given
+        interface and GetInterfaceDescription will provide a rendered
+        description.
+        """
+        if interface.name in self._interfaces:
+            raise ValueError(
+                f"an interface named {interface.name} is already registered"
+            )
+        self._interfaces[interface.name] = interface
+
+    @varlinkmethod
+    def GetInfo(self) -> _GetInfoResult:
+        """Refer to https://varlink.org/Service."""
+        return self._info | {"interfaces": sorted(self._interfaces.keys())}
+
+    @varlinkmethod(return_parameter="description")
+    def GetInterfaceDescription(self, *, interface: str) -> str:
+        """Refer to https://varlink.org/Service."""
+        return self._interfaces[interface].render_interface_description()

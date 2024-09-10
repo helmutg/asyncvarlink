@@ -144,14 +144,22 @@ def varlinkmethod(
             def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> dict[str, _R]:
                 return {return_parameter: function(*args, **kwargs)}
 
-        # Both mypy and pylint are unhappy about us setting a private attribute
-        # on an arbitrary Callable, but that's how we will recognize our
-        # prepared methods.
-        # pylint: disable=protected-access
-        wrapped._varlink_signature = vlsig  # type: ignore[attr-defined]
+        # Employ setattr instead of directly setting it as that makes mypy and
+        # pylint a lot happier.
+        setattr(wrapped, "_varlink_signature", vlsig)
         return wrapped
 
     if function is None:
         # The decorator is called with parens.
         return wrap
     return wrap(function)
+
+
+def varlinksignature(
+    method: typing.Callable[_P, _R]
+) -> VarlinkMethodSignature | None:
+    """Return the signature object constructed by the varlinkmethod decorator
+    if the given method has been decorated.
+    """
+    # Wrap the access in getattr as that makes mypy and pylint a lot happier.
+    return getattr(method, "_varlink_signature", None)

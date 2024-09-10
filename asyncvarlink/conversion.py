@@ -220,7 +220,7 @@ class ListVarlinkType(VarlinkType):
     def __init__(self, elttype: VarlinkType):
         self._elttype = elttype
         # mypy cannot runtime-constructed type hints.
-        self.as_type = list[elttype.as_type]  # type: ignore
+        self.as_type = list[elttype.as_type]  # type: ignore[name-defined]
         self.as_varlink = "[]" + elttype.as_varlink
 
     def tojson(
@@ -257,7 +257,7 @@ class DictVarlinkType(VarlinkType):
     def __init__(self, elttype: VarlinkType):
         self._elttype = elttype
         # mypy cannot runtime-constructed type hints.
-        self.as_type = dict[str, elttype.as_type]  # type: ignore
+        self.as_type = dict[str, elttype.as_type]  # type: ignore[name-defined]
         self.as_varlink = "[string]" + elttype.as_varlink
 
     def tojson(
@@ -311,7 +311,7 @@ class ObjectVarlinkType(VarlinkType):
             name: OptionalVarlinkType(tobj) for name, tobj in optional.items()
         }
         # mypy cannot runtime-constructed type hints.
-        self.as_type = typing.TypedDict(  # type: ignore
+        self.as_type = typing.TypedDict(  # type: ignore[misc]
             "ObjectVarlinkTypedDict",
             {name: tobj.as_type for name, tobj in typemap.items()},
         )

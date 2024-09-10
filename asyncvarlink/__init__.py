@@ -36,7 +36,7 @@ def _close(thing: HasFileno) -> None:
     try:
         # Silence the type checker: HasFileno doesn't have close, but we're
         # handling the AttributeError.
-        closemeth = thing.close  # type: ignore
+        closemeth = thing.close  # type: ignore[attr-defined]
     except AttributeError:
         os.close(thing.fileno())
     else:

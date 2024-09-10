@@ -23,6 +23,7 @@ import socket
 import typing
 
 from .conversion import *
+from .interface import *
 from .types import *
 
 

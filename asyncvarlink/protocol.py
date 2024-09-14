@@ -353,6 +353,8 @@ class VarlinkProtocol(asyncio.BaseProtocol):
             fut = consume()
         finally:
             if fut is None or fut.done():
+                # If the consumer finishes immediately, skip back pressure
+                # via pause_receiving as that typically incurs two syscalls.
                 if self._consumer_queue:
                     asyncio.get_running_loop().call_soon(
                         self._process_queue, None

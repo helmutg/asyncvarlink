@@ -193,7 +193,7 @@ class VarlinkInterface:
                 f"{signature.return_type.as_varlink}"
             )
         lines.append("")
-        return "".join(lines)
+        return "\n".join(lines)
 
 
 class VarlinkServiceInterface(VarlinkInterface):

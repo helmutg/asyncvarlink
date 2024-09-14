@@ -5,7 +5,12 @@ import socket
 import unittest
 from unittest.mock import Mock
 
-from asyncvarlink import VarlinkProtocol, VarlinkTransport
+from asyncvarlink import (
+    VarlinkMethodCall,
+    VarlinkMethodReply,
+    VarlinkProtocol,
+    VarlinkTransport,
+)
 
 
 async def wait_called(mock: Mock) -> None:
@@ -175,3 +180,60 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 b'{"hello": "world"}\0', await loop.sock_recv(sock2, 1024)
             )
+
+
+class CallReplyTest(unittest.TestCase):
+    def test_valid_call(self) -> None:
+        for jobj in (
+            {},
+            {"parameters": {"ingredient": "egg"}},
+            {"oneway": True},
+            {"more": True},
+            {"upgrade": True},
+            {"more": True},
+            {"com.example.Extension": "spam"},
+        ):
+            jobj["method"] = "com.example.Spam"
+            call = VarlinkMethodCall.fromjson(jobj)
+            self.assertEqual(jobj, call.tojson())
+
+    def test_invalid_call(self) -> None:
+        for exc, jobj in (
+            (TypeError, 42),
+            (ValueError, {}),
+            (TypeError, {"method": 42}),
+            (ValueError, {"method": "Unqualified"}),
+            (ValueError, {"method": "com.example.lowercase"}),
+            (TypeError, {"method": "com.example.Spam", "oneway": "egg"}),
+            (TypeError, {"method": "com.example.Spam", "more": "egg"}),
+            (TypeError, {"method": "com.example.Spam", "upgrade": "egg"}),
+            (
+                ValueError,
+                {"method": "com.example.Spam", "more": True, "oneway": True},
+            ),
+            (TypeError, {"method": "com.example.Spam", "parameters": "egg"}),
+        ):
+            with self.assertRaises(exc):
+                VarlinkMethodCall.fromjson(jobj)
+
+    def test_valid_reply(self) -> None:
+        for jobj in (
+            {},
+            {"error": "com.example.Spam"},
+            {"parameters": {"ingredients": "egg"}},
+            {"continues": True},
+        ):
+            reply = VarlinkMethodReply.fromjson(jobj)
+            self.assertEqual(jobj, reply.tojson())
+
+    def test_invalid_reply(self) -> None:
+        for exc, jobj in (
+            (TypeError, 42),
+            (TypeError, {"error": 42}),
+            (ValueError, {"error": "Unqualified"}),
+            (ValueError, {"error": "com.example.lowercase"}),
+            (TypeError, {"parameters": "egg"}),
+            (TypeError, {"continues": "egg"}),
+        ):
+            with self.assertRaises(exc):
+                VarlinkMethodReply.fromjson(jobj)

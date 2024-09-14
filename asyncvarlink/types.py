@@ -3,6 +3,7 @@
 
 """Basic type definitions."""
 
+import re
 import typing
 
 
@@ -32,3 +33,20 @@ class FileDescriptor(int):
     def fileno(self) -> int:
         """Returns the underlying file descriptor, i.e. self."""
         return self
+
+
+def validate_interface(interface: str) -> None:
+    """Validate a varlink interface in reverse-domain notation. May raise a
+    ValueError.
+    """
+    if not re.match(
+        r"[A-Za-z](?:-*[A-Za-z0-9])*(?:\.[A-Za-z0-9](?:-*[A-Za-z0-9])*)+",
+        interface,
+    ):
+        raise ValueError(f"invalid varlink interface {interface!r}")
+
+
+def validate_name(name: str) -> None:
+    """Validate a varlink name. May raise a ValueError."""
+    if not re.match(r"^[A-Z][A-Za-z0-9]*$", name):
+        raise ValueError(f"invalid varlink name {name!r}")

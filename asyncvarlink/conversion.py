@@ -463,6 +463,20 @@ class FileDescriptorVarlinkType(VarlinkType):
     as_type = FileDescriptor
     as_varlink = "int"
 
+    def _get_fdlist(self, oobstate: OOBTypeState) -> list[int | None]:
+        if oobstate is None:
+            raise ConversionError(
+                "cannot convert a file descriptor without oobstate"
+            )
+        try:
+            fdlist = oobstate[self.__class__]
+        except KeyError:
+            raise ConversionError(
+                "cannot convert a file descriptor without associated oobstate"
+            ) from None
+        assert isinstance(fdlist, list)
+        return fdlist
+
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
@@ -477,12 +491,7 @@ class FileDescriptorVarlinkType(VarlinkType):
             assert isinstance(obj, int)
         if not isinstance(obj, FileDescriptor):
             obj = FileDescriptor(obj)
-        if oobstate is None:
-            raise ConversionError(
-                "cannot represent a file descriptor without oobstate"
-            )
-        fdlist = oobstate.setdefault(self.__class__, [])
-        assert isinstance(fdlist, list)
+        fdlist = self._get_fdlist(oobstate)
         result = len(fdlist)
         fdlist.append(FileDescriptor(obj))
         return result
@@ -502,14 +511,7 @@ class FileDescriptorVarlinkType(VarlinkType):
             raise ConversionError(
                 "cannot unrepresent a file descriptor without oobstate"
             )
-        try:
-            fdlist = oobstate[self.__class__]
-        except KeyError:
-            raise ConversionError(
-                "cannot unrepresent a file descriptor without associated "
-                "oobstate"
-            ) from None
-        assert isinstance(fdlist, list)
+        fdlist = self._get_fdlist(oobstate)
         if 0 <= obj < len(fdlist):
             if (fd := fdlist[obj]) is None:
                 raise ConversionError(

@@ -120,10 +120,12 @@ class ConversionTests(unittest.TestCase):
     def test_round_trip(self, ta: type, data) -> None:
         vt = VarlinkType.from_type_annotation(ta)
         obj = data.draw(representable(vt))
-        oob: dict[type, typing.Any] = {}
+        fdlist: list[int | None] = []
+        oob: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdlist}
         val = vt.tojson(obj, oob)
         obj_again = vt.fromjson(val, oob)
         self.assertEqual(obj, obj_again)
+        self.assertEqual(fdlist, [None] * len(fdlist))
 
     @hypothesis.given(type_annotations, json_values)
     def test_exception(self, ta: type, val: JSONValue) -> None:

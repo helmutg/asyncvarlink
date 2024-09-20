@@ -1,6 +1,9 @@
 import unittest
 
-from asyncvarlink.serviceinterface import VarlinkServiceInterface
+from asyncvarlink.serviceinterface import (
+    InterfaceNotFound,
+    VarlinkServiceInterface,
+)
 
 
 class TestServiceInterface(unittest.TestCase):
@@ -33,4 +36,11 @@ method GetInterfaceDescription(interface: string) -> (description: string)
 """,
             },
             self.vsi.GetInterfaceDescription(interface=self.vsi.name),
+        )
+
+    def test_missing_interface(self) -> None:
+        self.assertRaises(
+            InterfaceNotFound,
+            self.vsi.GetInterfaceDescription,
+            interface="com.example.nonexistent",
         )

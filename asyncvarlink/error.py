@@ -184,6 +184,12 @@ class TypedVarlinkErrorReply(VarlinkErrorReply):
         return ret
 
     if typing.TYPE_CHECKING:
+        # Pretend that we have an __init__ as mypy does not recognize the
+        # generated __init__ method.
+        def __init__(
+            self, _mapping: JSONObject | None = None, /, **_kwargs: JSONValue
+        ): ...
+
         # Pretend that we have __getattr__ such that mypy and pylint do not
         # moan about accessing our descriptor objects. Unfortunately, this
         # entirely breaks checking attributes.

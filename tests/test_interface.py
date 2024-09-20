@@ -1,6 +1,6 @@
 import unittest
 
-from asyncvarlink import VarlinkServiceInterface
+from asyncvarlink.serviceinterface import VarlinkServiceInterface
 
 
 class TestServiceInterface(unittest.TestCase):

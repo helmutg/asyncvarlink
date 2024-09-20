@@ -13,6 +13,7 @@
 """
 
 from .conversion import *
+from .error import *
 from .interface import *
 from .protocol import *
 from .types import *

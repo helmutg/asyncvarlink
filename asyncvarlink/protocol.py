@@ -31,9 +31,7 @@ def _close(thing: HasFileno) -> None:
     behaviour on sockets and buffered files.
     """
     try:
-        # Silence the type checker: HasFileno doesn't have close, but we're
-        # handling the AttributeError.
-        closemeth = thing.close  # type: ignore[attr-defined]
+        closemeth = getattr(thing, "close")
     except AttributeError:
         os.close(thing.fileno())
     else:

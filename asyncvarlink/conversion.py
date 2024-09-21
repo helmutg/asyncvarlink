@@ -463,13 +463,14 @@ class FileDescriptorVarlinkType(VarlinkType):
     as_type = FileDescriptor
     as_varlink = "int"
 
-    def _get_fdlist(self, oobstate: OOBTypeState) -> list[int | None]:
+    @classmethod
+    def _get_fdlist(cls, oobstate: OOBTypeState) -> list[int | None]:
         if oobstate is None:
             raise ConversionError(
                 "cannot convert a file descriptor without oobstate"
             )
         try:
-            fdlist = oobstate[self.__class__]
+            fdlist = oobstate[cls]
         except KeyError:
             raise ConversionError(
                 "cannot convert a file descriptor without associated oobstate"

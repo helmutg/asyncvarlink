@@ -6,6 +6,8 @@ import unittest
 from unittest.mock import Mock
 
 from asyncvarlink import (
+    JSONObject,
+    JSONValue,
     VarlinkMethodCall,
     VarlinkMethodReply,
     VarlinkProtocol,
@@ -184,7 +186,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
 
 class CallReplyTest(unittest.TestCase):
     def test_valid_call(self) -> None:
-        for jobj in (
+        cases: list[JSONObject] = [
             {},
             {"parameters": {"ingredient": "egg"}},
             {"oneway": True},
@@ -192,13 +194,14 @@ class CallReplyTest(unittest.TestCase):
             {"upgrade": True},
             {"more": True},
             {"com.example.Extension": "spam"},
-        ):
+        ]
+        for jobj in cases:
             jobj["method"] = "com.example.Spam"
             call = VarlinkMethodCall.fromjson(jobj)
             self.assertEqual(jobj, call.tojson())
 
     def test_invalid_call(self) -> None:
-        for exc, jobj in (
+        cases: list[tuple[type[Exception], JSONValue]] = [
             (TypeError, 42),
             (ValueError, {}),
             (TypeError, {"method": 42}),
@@ -212,28 +215,31 @@ class CallReplyTest(unittest.TestCase):
                 {"method": "com.example.Spam", "more": True, "oneway": True},
             ),
             (TypeError, {"method": "com.example.Spam", "parameters": "egg"}),
-        ):
+        ]
+        for exc, jobj in cases:
             with self.assertRaises(exc):
                 VarlinkMethodCall.fromjson(jobj)
 
     def test_valid_reply(self) -> None:
-        for jobj in (
+        cases: list[JSONObject] = [
             {},
             {"error": "com.example.Spam"},
             {"parameters": {"ingredients": "egg"}},
             {"continues": True},
-        ):
+        ]
+        for jobj in cases:
             reply = VarlinkMethodReply.fromjson(jobj)
             self.assertEqual(jobj, reply.tojson())
 
     def test_invalid_reply(self) -> None:
-        for exc, jobj in (
+        cases: list[tuple[type[Exception], JSONValue]] = [
             (TypeError, 42),
             (TypeError, {"error": 42}),
             (ValueError, {"error": "Unqualified"}),
             (ValueError, {"error": "com.example.lowercase"}),
             (TypeError, {"parameters": "egg"}),
             (TypeError, {"continues": "egg"}),
-        ):
+        ]
+        for exc, jobj in cases:
             with self.assertRaises(exc):
                 VarlinkMethodReply.fromjson(jobj)

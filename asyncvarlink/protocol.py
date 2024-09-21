@@ -19,6 +19,7 @@ from .types import (
     HasFileno,
     JSONObject,
     JSONValue,
+    OwnedFileDescriptors,
     close_fileno,
     validate_interface,
     validate_name,
@@ -133,9 +134,19 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._loop.remove_reader(self._recvfd)
             self._close_receiver()
             return
+        ownedfds = OwnedFileDescriptors(fds)
         if msg:
-            self._protocol.message_received(msg, fds)
+            try:
+                maybefut = self._protocol.message_received(msg, ownedfds)
+            except:
+                ownedfds.close()
+                raise
+            if maybefut:
+                maybefut.add_done_callback(lambda _fut: ownedfds.close())
+            else:
+                ownedfds.close()
         else:
+            ownedfds.close()
             self._loop.remove_reader(self._recvfd)
             try:
                 self._protocol.eof_received()
@@ -154,7 +165,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._close_receiver()
             return
         if data:
-            self._protocol.message_received(data, [])
+            self._protocol.message_received(data, OwnedFileDescriptors())
         else:
             self._loop.remove_reader(self._recvfd)
             try:
@@ -302,7 +313,14 @@ class VarlinkProtocol(asyncio.BaseProtocol):
     def __init__(self) -> None:
         self._recv_buffer = b""
         self._consumer_queue: collections.deque[
-            typing.Callable[[], asyncio.Future[None] | None]
+            tuple[
+                # A closure for invoking the next consumer
+                typing.Callable[[], asyncio.Future[None] | None],
+                # An optional future that should be notified when the consumer
+                # is done consuming (i.e. the future it returned is completed
+                # or it returned None or raised an exception).
+                asyncio.Future[None] | None,
+            ]
         ] = collections.deque()
         self._transport: VarlinkTransport | None = None
 
@@ -310,10 +328,14 @@ class VarlinkProtocol(asyncio.BaseProtocol):
         assert isinstance(transport, VarlinkTransport)
         self._transport = transport
 
-    def message_received(self, data: bytes, fds: list[int]) -> None:
+    def message_received(
+        self, data: bytes, fds: OwnedFileDescriptors
+    ) -> asyncio.Future[None] | None:
         """Called when the transport received new data. The data can be
-        accompanied by open file descriptors. It is the responsibility of the
-        method to eventually close them.
+        accompanied by open file descriptors. The caller will close all
+        passed file descriptors that have not been taken
+        (OwnedFileDescriptors.take) once message_received returns None or the
+        returned future completes.
         """
         parts = data.split(b"\0")
         if self._recv_buffer:
@@ -321,33 +343,47 @@ class VarlinkProtocol(asyncio.BaseProtocol):
         self._recv_buffer = parts.pop()
         loop = asyncio.get_running_loop()
         processing = bool(self._consumer_queue)
+        result = None
         for reqdata in parts:
+            fut = loop.create_future() if fds else None
+            if result is None:
+                result = fut
+            else:
+                assert fut is None
             try:
                 obj = json.loads(reqdata)
             except json.decoder.JSONDecodeError as err:
                 self._consumer_queue.append(
-                    functools.partial(self.error_received, err, reqdata, fds)
+                    (
+                        functools.partial(
+                            self.error_received, err, reqdata, fds
+                        ),
+                        fut,
+                    ),
                 )
             else:
                 self._consumer_queue.append(
-                    functools.partial(self.request_received, obj, fds)
+                    (functools.partial(self.request_received, obj, fds), fut)
                 )
             if not processing:
                 loop.call_soon(self._process_queue, None)
                 processing = True
-            fds = []
+            fds = OwnedFileDescriptors()
+        return result
 
     def _process_queue(self, _: asyncio.Future[None] | None) -> None:
         assert self._transport is not None
         if not self._consumer_queue:
             self._transport.resume_receiving()
             return
-        consume = self._consumer_queue.popleft()
+        consume, notify = self._consumer_queue.popleft()
         fut = None
         try:
             fut = consume()
         finally:
             if fut is None or fut.done():
+                if notify is not None:
+                    notify.set_result(None)
                 # If the consumer finishes immediately, skip back pressure
                 # via pause_receiving as that typically incurs two syscalls.
                 if self._consumer_queue:
@@ -357,6 +393,8 @@ class VarlinkProtocol(asyncio.BaseProtocol):
                 else:
                     self._transport.resume_receiving()
             else:
+                if notify is not None:
+                    fut.add_done_callback(lambda _fut: notify.set_result(None))
                 fut.add_done_callback(self._process_queue)
                 self._transport.pause_receiving()
 
@@ -366,25 +404,23 @@ class VarlinkProtocol(asyncio.BaseProtocol):
         """
 
     def request_received(
-        self, obj: JSONObject, fds: list[int]
+        self, obj: JSONObject, fds: OwnedFileDescriptors
     ) -> asyncio.Future[None] | None:
         """Handle an incoming varlink request or response object together with
         associated file descriptors. If the handler returns a future, further
-        processing will be delayed until the future is done. The handler is
-        responsible for the disposal of passed file descriptors.
+        processing will be delayed until the future is done. Once the function
+        returns None or the returned future completes all remaining fds that
+        have not been taken (OwnedFileDescriptors.take) will be closed.
         """
         raise NotImplementedError
 
     # pylint: disable=unused-argument  # Arguments provided for inheritance
     def error_received(
-        self, err: Exception, data: bytes, fds: list[int]
+        self, err: Exception, data: bytes, fds: OwnedFileDescriptors
     ) -> None:
         """Handle an incoming protocol violation such as wrongly encoded JSON.
-        The handler is responsible for disposing any received file descriptors
-        and this is all that the default implementation does.
+        The default handler does nothing.
         """
-        for fd in fds:
-            os.close(fd)
 
     def send_message(
         self,

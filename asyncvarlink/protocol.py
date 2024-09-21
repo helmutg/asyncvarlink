@@ -19,23 +19,12 @@ from .types import (
     HasFileno,
     JSONObject,
     JSONValue,
+    close_fileno,
     validate_interface,
     validate_name,
 )
 
 logger = logging.getLogger("asyncvarlink.protocol")
-
-
-def _close(thing: HasFileno) -> None:
-    """Close something that has a fileno. Use .close() if available to improve
-    behaviour on sockets and buffered files.
-    """
-    try:
-        closemeth = getattr(thing, "close")
-    except AttributeError:
-        os.close(thing.fileno())
-    else:
-        closemeth()
 
 
 def _check_socket(thing: socket.socket | int | HasFileno) -> HasFileno:
@@ -128,7 +117,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         if self._sendfd is None:
             self._closing = True
         elif self._recvfd.fileno() != self._sendfd.fileno():
-            _close(self._recvfd)
+            close_fileno(self._recvfd)
         self._recvfd = None
 
     def _handle_read_socket(self) -> None:
@@ -240,7 +229,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         if self._recvfd is None:
             self._closing = True
         elif self._recvfd.fileno() != self._sendfd.fileno():
-            _close(self._sendfd)
+            close_fileno(self._sendfd)
         self._sendfd = None
         while self._sendqueue:
             _, _, fut = self._sendqueue.popleft()

@@ -3,6 +3,7 @@
 
 """Basic type definitions."""
 
+import os
 import re
 import typing
 
@@ -33,6 +34,18 @@ class FileDescriptor(int):
     def fileno(self) -> int:
         """Returns the underlying file descriptor, i.e. self."""
         return self
+
+
+def close_fileno(thing: HasFileno) -> None:
+    """Close something that has a fileno. Use .close() if available to improve
+    behaviour on sockets and buffered files.
+    """
+    try:
+        closemeth = getattr(thing, "close")
+    except AttributeError:
+        os.close(thing.fileno())
+    else:
+        closemeth()
 
 
 def validate_interface(interface: str) -> None:

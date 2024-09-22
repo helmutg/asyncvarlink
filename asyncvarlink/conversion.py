@@ -422,7 +422,7 @@ class ObjectVarlinkType(VarlinkType):
 
 
 class EnumVarlinkType(VarlinkType):
-    """A varlink type represening an enum/enum.Enum."""
+    """A varlink type representing an enum/enum.Enum."""
 
     def __init__(self, enumtype: type[enum.Enum]) -> None:
         if not issubclass(enumtype, enum.Enum):

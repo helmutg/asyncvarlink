@@ -136,7 +136,7 @@ class TypedVarlinkErrorReply(VarlinkErrorReply):
             # mypy does not like to construct a TypedDict with non-constant
             # arguments, but that's exactly what we're up to here. It also
             # objects to assigning a type hint to a variable assigned elsewhere
-            # as a TypedDict may alread be defined as an annotation of the
+            # as a TypedDict may already be defined as an annotation of the
             # the parameters attribute. Silence both.
             paramtype = typing.TypedDict(  # type: ignore[misc,no-redef]
                 f"{cls.__name__}Parameters", paramcls.__annotations__

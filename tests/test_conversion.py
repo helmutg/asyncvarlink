@@ -16,6 +16,7 @@ from asyncvarlink import (
     ListVarlinkType,
     ObjectVarlinkType,
     OptionalVarlinkType,
+    OwnedFileDescriptors,
     SetVarlinkType,
     SimpleVarlinkType,
     VarlinkType,
@@ -76,13 +77,20 @@ def type_annotations() -> st.SearchStrategy:
     )
 
 
+class MockedFd(FileDescriptor):
+    """Looks like file descriptor, but isn't and swallows close."""
+
+    def close(self):
+        pass
+
+
 def representable(vt: VarlinkType) -> st.SearchStrategy:
     if isinstance(vt, (SimpleVarlinkType, EnumVarlinkType)):
         if vt.as_type == float:
             return st.floats(allow_nan=False)
         return st.from_type(vt.as_type)
     if isinstance(vt, FileDescriptorVarlinkType):
-        return st.integers(min_value=0)
+        return st.builds(MockedFd, st.integers(min_value=0))
     if isinstance(vt, OptionalVarlinkType):
         return st.one_of(st.none(), representable(vt._vtype))
     if isinstance(vt, ListVarlinkType):
@@ -121,11 +129,13 @@ class ConversionTests(unittest.TestCase):
         vt = VarlinkType.from_type_annotation(ta)
         obj = data.draw(representable(vt))
         fdlist: list[int | None] = []
-        oob: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdlist}
-        val = vt.tojson(obj, oob)
-        obj_again = vt.fromjson(val, oob)
+        oobto: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdlist}
+        val = vt.tojson(obj, oobto)
+        ownedfds = OwnedFileDescriptors(fdlist)
+        oobfrom: dict[type, typing.Any] = {FileDescriptorVarlinkType: ownedfds}
+        obj_again = vt.fromjson(val, oobfrom)
         self.assertEqual(obj, obj_again)
-        self.assertEqual(fdlist, [None] * len(fdlist))
+        self.assertFalse(bool(ownedfds))
 
     @hypothesis.given(type_annotations, json_values)
     def test_exception(self, ta: type, val: JSONValue) -> None:

@@ -8,7 +8,7 @@ import enum
 import types
 import typing
 
-from .types import FileDescriptor, JSONValue
+from .types import FileDescriptor, JSONValue, OwnedFileDescriptors
 
 
 class ConversionError(Exception):
@@ -464,26 +464,25 @@ class FileDescriptorVarlinkType(VarlinkType):
     as_varlink = "int"
 
     @classmethod
-    def _get_fdlist(cls, oobstate: OOBTypeState) -> list[int | None]:
+    def _get_oob(cls, oobstate: OOBTypeState) -> typing.Any:
         if oobstate is None:
             raise ConversionError(
                 "cannot convert a file descriptor without oobstate"
             )
         try:
-            fdlist = oobstate[cls]
+            return oobstate[cls]
         except KeyError:
             raise ConversionError(
                 "cannot convert a file descriptor without associated oobstate"
             ) from None
-        assert isinstance(fdlist, list)
-        return fdlist
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
         """Represent a file descriptor. It may be conveyed as int | HasFileno.
         The actual file descriptor is appended to the out-of-band state array
-        and the returned json value is the index into said array.
+        and the returned json value is the index into said array. A list[int]
+        should be conveyed as out-of-band state.
         """
         if not isinstance(obj, int):
             if not hasattr(obj, "fileno"):
@@ -492,7 +491,12 @@ class FileDescriptorVarlinkType(VarlinkType):
             assert isinstance(obj, int)
         if not isinstance(obj, FileDescriptor):
             obj = FileDescriptor(obj)
-        fdlist = self._get_fdlist(oobstate)
+        fdlist = self._get_oob(oobstate)
+        if not isinstance(fdlist, list):
+            raise ConversionError(
+                f"out-of-band state for {self.__class__.__name__} should be "
+                f"list[int], is {type(fdlist)}"
+            )
         result = len(fdlist)
         fdlist.append(FileDescriptor(obj))
         return result
@@ -501,10 +505,9 @@ class FileDescriptorVarlinkType(VarlinkType):
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
         """Unrepresent a file descriptor. The int value is understood as an
-        index into the out-of-band state array of actual file descriptors. A
-        file descriptor is looked up at the index and the position is assigned
-        None. Hence each index must be unique and any unconverted file
-        descriptors can be collected at the end of the conversion.
+        index into the out-of-band state object of type OwnedFileDescriptors. A
+        file descriptor is looked up at the index and the position is released
+        there.
         """
         if not isinstance(obj, int):
             raise ConversionError.expected("int", obj)
@@ -512,17 +515,18 @@ class FileDescriptorVarlinkType(VarlinkType):
             raise ConversionError(
                 "cannot unrepresent a file descriptor without oobstate"
             )
-        fdlist = self._get_fdlist(oobstate)
-        if 0 <= obj < len(fdlist):
-            if (fd := fdlist[obj]) is None:
-                raise ConversionError(
-                    f"attempt to reference file descriptor index {obj} twice"
-                )
-            fdlist[obj] = None
-            return fd
-        raise ConversionError(
-            f"file descriptor index {obj} out of bound for oobstate"
-        )
+        ownedfds = self._get_oob(oobstate)
+        if not isinstance(ownedfds, OwnedFileDescriptors):
+            raise ConversionError(
+                f"out-of-band state for {self.__class__.__name__} should be "
+                f"OwnedFileDescriptors, is {type(ownedfds)}"
+            )
+        try:
+            return ownedfds.take(obj)
+        except IndexError as err:
+            raise ConversionError(
+                f"attempt to convert invalid file descriptor index {obj}"
+            ) from err
 
 
 class ForeignVarlinkType(VarlinkType):

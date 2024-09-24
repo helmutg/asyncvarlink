@@ -535,7 +535,9 @@ class ForeignVarlinkType(VarlinkType):
     """
 
     as_type = typing.Any
-    as_varlink = "object"
+
+    def __init__(self, varlink: str = "object"):
+        self.as_varlink = varlink
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None

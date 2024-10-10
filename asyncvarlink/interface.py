@@ -9,6 +9,7 @@ import inspect
 import typing
 
 from .conversion import ObjectVarlinkType, VarlinkType
+from .types import JSONObject
 
 
 _P = typing.ParamSpec("_P")
@@ -35,16 +36,61 @@ class VarlinkMethodSignature:
     """A type for the return parameters."""
 
 
-@typing.overload
-def varlinkmethod(
-    function: typing.Callable[_P, _R], *, return_parameter: str | None = None
-) -> typing.Callable[_P, _R]: ...
+@dataclasses.dataclass
+class AnnotatedResult:
+    """A wrapper for unconverted varlink reply values to affect protocol-level
+    details.
+    """
+
+    parameters: dict[str, typing.Any]
+    """Parameter mapping that would normally returned without this wrapper."""
+
+    _: dataclasses.KW_ONLY
+
+    continues: bool = False
+    """Indicates whether another reply follows this reply. Setting this is only
+    valid if the caller enabled the "more" flag. If setting this to True,
+    another reply must follow. Otherwise, this must be the last reply.
+    """
+
+    extensions: JSONObject = dataclasses.field(default_factory=dict)
+    """May be used to supply extension fields on the varlink reply level."""
+
+
+class LastResult(Exception):
+    """An varlink-specific exception for signalling a non-continued reply after
+    a sequence of continued replies."""
+
+    def __init__(self, value: typing.Any):
+        if isinstance(value, AnnotatedResult) and value.continues:
+            raise RuntimeError(
+                "An AnnotatedResult raised via LastResult cannot continue."
+            )
+        self.value = value
+
+
+_MethodResultType = (
+    AnnotatedResult
+    | typing.Iterable[AnnotatedResult]
+    | typing.AsyncIterable[AnnotatedResult]
+)
 
 
 @typing.overload
 def varlinkmethod(
-    *, return_parameter: str | None = None
-) -> typing.Callable[[typing.Callable[_P, _R]], typing.Callable[_P, _R]]: ...
+    function: typing.Callable[_P, _R],
+    *,
+    return_parameter: str | None = None,
+    delay_generator: bool = True,
+) -> typing.Callable[_P, _MethodResultType]: ...
+
+
+@typing.overload
+def varlinkmethod(
+    *, return_parameter: str | None = None, delay_generator: bool = True
+) -> typing.Callable[
+    [typing.Callable[_P, _R]], typing.Callable[_P, _MethodResultType]
+]: ...
 
 
 # Whilst the Python documentation says the implementation should be untyped,
@@ -54,20 +100,38 @@ def varlinkmethod(
     function: typing.Callable[_P, _R] | None = None,
     *,
     return_parameter: str | None = None,
+    delay_generator: bool = True,
 ) -> (
-    typing.Callable[[typing.Callable[_P, _R]], typing.Callable[_P, typing.Any]]
-    | typing.Callable[_P, typing.Any]
+    typing.Callable[
+        [typing.Callable[_P, _R]],
+        typing.Callable[_P, _MethodResultType],
+    ]
+    | typing.Callable[_P, _MethodResultType]
 ):
-    """Decorator for flagging fully type annotated methods as callable from
-    varlink. The function may be a generator, in which case it should be called
-    with the "more" field set on the varlink side. The function may be a
-    coroutine. The function (or generator, async or not) must return a dict
-    (more precisely a typing.TypedDict) unless return_parameter is set, in
-    which case the result is (or the results are) wrapped in a dict with the
-    return_parameter as key.
+    """Decorator for fully type annotated methods to be callable from varlink.
+    The function may be a generator, in which case it should be called
+    with the "more" field set on the varlink side.
+
+    The function has multiple options to return or yield values. It may produce
+    AnnotatedResult instances. If return_parameter is None, it may produce a
+    dict and a bare value to be wrapped in a dict with return_parameter as key
+    otherwise.
+
+    If the function is a generator (async or not), AnnotatedResult are
+    forwarded immediately. They must correctly indicate whether the generator
+    produces another element by setting the continues field appropriately. If
+    delay_generator is True, other values will be delayed until the next
+    element is produced (and thus the continues field for the previous element
+    is known). Otherwise, all values are forwarded immediately assuming that
+    generator never finishes via StopIteration or AsyncStopIteration. In the
+    latter case, a final value may produced by raising it inside as LastResult
+    exception. The function must produce at least one result or raise as
+    LastResult exception.
     """
 
-    def wrap(function: typing.Callable[_P, _R]) -> typing.Callable[_P, _R]:
+    def wrap(
+        function: typing.Callable[_P, _R]
+    ) -> typing.Callable[_P, AnnotatedResult]:
         asynchronous = inspect.iscoroutinefunction(function)
         signature = inspect.signature(function)
         param_iterator = iter(signature.parameters.items())
@@ -85,12 +149,22 @@ def varlinkmethod(
             return_type = typing.get_args(return_type)[0]
             more = True
         return_vtype = VarlinkType.from_type_annotation(return_type)
-        if return_parameter is not None:
+        make_result: typing.Callable[[_R], AnnotatedResult]
+        if return_parameter is None:
+            if not isinstance(return_vtype, ObjectVarlinkType):
+                raise TypeError("a varlinkmethod must return a mapping")
+            # mypy cannot figure out that a type also is a Callable.
+            make_result = typing.cast(
+                typing.Callable[[_R], AnnotatedResult], AnnotatedResult
+            )
+        else:
             return_vtype = ObjectVarlinkType(
                 {return_parameter: return_vtype}, {}
             )
-        elif not isinstance(return_vtype, ObjectVarlinkType):
-            raise TypeError("a varlinkmethod must return a mapping")
+
+            def make_result(result: _R) -> AnnotatedResult:
+                return AnnotatedResult({return_parameter: result})
+
         vlsig = VarlinkMethodSignature(
             asynchronous,
             more,
@@ -101,31 +175,109 @@ def varlinkmethod(
             return_vtype,
         )
         wrapped: typing.Callable[_P, typing.Any]
-        if return_parameter is None:
-            wrapped = function
-        elif more and asynchronous:
+        if more and asynchronous:
             asynciterfunction = typing.cast(
                 typing.Callable[_P, typing.AsyncIterable[_R]], function
             )
 
-            @functools.wraps(function)
-            async def wrapped(
-                *args: _P.args, **kwargs: _P.kwargs
-            ) -> typing.AsyncGenerator[dict[str, _R], None]:
-                async for result in asynciterfunction(*args, **kwargs):
-                    yield {return_parameter: result}
+            if delay_generator:
+
+                @functools.wraps(function)
+                async def wrapped(
+                    *args: _P.args, **kwargs: _P.kwargs
+                ) -> typing.AsyncGenerator[AnnotatedResult, None]:
+                    pending = None
+                    try:
+                        async for result in asynciterfunction(*args, **kwargs):
+                            if pending is not None:
+                                pending.continues = True
+                                yield pending
+                                pending = None
+                            if isinstance(result, AnnotatedResult):
+                                yield result
+                            else:
+                                pending = make_result(result)
+                    except LastResult as exc:
+                        if pending is not None:
+                            pending.continues = True
+                            yield pending
+                        if isinstance(exc.value, AnnotatedResult):
+                            yield exc.value
+                        else:
+                            yield make_result(exc.value)
+                    else:
+                        if pending is not None:
+                            yield pending
+
+            else:
+
+                @functools.wraps(function)
+                async def wrapped(
+                    *args: _P.args, **kwargs: _P.kwargs
+                ) -> typing.AsyncGenerator[AnnotatedResult, None]:
+                    try:
+                        async for result in asynciterfunction(*args, **kwargs):
+                            if isinstance(result, AnnotatedResult):
+                                yield result
+                            else:
+                                yield make_result(result)
+                    except LastResult as exc:
+                        if isinstance(exc.value, AnnotatedResult):
+                            yield exc.value
+                        else:
+                            yield make_result(exc.value)
 
         elif more:
             iterfunction = typing.cast(
                 typing.Callable[_P, typing.Iterable[_R]], function
             )
 
-            @functools.wraps(function)
-            def wrapped(
-                *args: _P.args, **kwargs: _P.kwargs
-            ) -> typing.Generator[dict[str, _R], None, None]:
-                for result in iterfunction(*args, **kwargs):
-                    yield {return_parameter: result}
+            if delay_generator:
+
+                @functools.wraps(function)
+                def wrapped(
+                    *args: _P.args, **kwargs: _P.kwargs
+                ) -> typing.Generator[AnnotatedResult, None, None]:
+                    pending = None
+                    try:
+                        for result in iterfunction(*args, **kwargs):
+                            if pending is not None:
+                                pending.continues = True
+                                yield pending
+                                pending = None
+                            if isinstance(result, AnnotatedResult):
+                                yield result
+                            else:
+                                pending = make_result(result)
+                    except LastResult as exc:
+                        if pending is not None:
+                            pending.continues = True
+                            yield pending
+                        if isinstance(exc.value, AnnotatedResult):
+                            yield exc.value
+                        else:
+                            yield make_result(exc.value)
+                    else:
+                        if pending is not None:
+                            yield pending
+
+            else:
+
+                @functools.wraps(function)
+                def wrapped(
+                    *args: _P.args, **kwargs: _P.kwargs
+                ) -> typing.Generator[AnnotatedResult, None, None]:
+                    try:
+                        for result in iterfunction(*args, **kwargs):
+                            if isinstance(result, AnnotatedResult):
+                                yield result
+                            else:
+                                yield make_result(result)
+                    except LastResult as exc:
+                        if isinstance(exc.value, AnnotatedResult):
+                            yield exc.value
+                        else:
+                            yield make_result(exc.value)
 
         elif asynchronous:
             asyncfunction = typing.cast(
@@ -135,14 +287,28 @@ def varlinkmethod(
             @functools.wraps(function)
             async def wrapped(
                 *args: _P.args, **kwargs: _P.kwargs
-            ) -> dict[str, _R]:
-                return {return_parameter: await asyncfunction(*args, **kwargs)}
+            ) -> AnnotatedResult:
+                try:
+                    result = await asyncfunction(*args, **kwargs)
+                except LastResult as exc:
+                    result = exc.value
+                if isinstance(result, AnnotatedResult):
+                    return result
+                return make_result(result)
 
         else:
 
             @functools.wraps(function)
-            def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> dict[str, _R]:
-                return {return_parameter: function(*args, **kwargs)}
+            def wrapped(
+                *args: _P.args, **kwargs: _P.kwargs
+            ) -> AnnotatedResult:
+                try:
+                    result = function(*args, **kwargs)
+                except LastResult as exc:
+                    result = exc.value
+                if isinstance(result, AnnotatedResult):
+                    return result
+                return make_result(result)
 
         # Employ setattr instead of directly setting it as that makes mypy and
         # pylint a lot happier.

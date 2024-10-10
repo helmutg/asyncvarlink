@@ -15,6 +15,7 @@
 from .conversion import *
 from .error import *
 from .interface import *
+from .message import *
 from .protocol import *
 from .types import *
 from .util import *

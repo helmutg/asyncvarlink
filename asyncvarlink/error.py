@@ -6,8 +6,9 @@
 import functools
 import typing
 
-from .types import JSONObject, JSONValue
 from .conversion import ObjectVarlinkType, VarlinkType
+from .message import VarlinkMethodReply
+from .types import JSONObject, JSONValue
 
 
 class _VarlinkErrorParameterDescriptor:
@@ -39,13 +40,13 @@ class VarlinkErrorReply(Exception):
         """Represent the parameters as a JSONObject."""
         raise NotImplementedError
 
+    def toreply(self) -> VarlinkMethodReply:
+        """Represent the error as a VarlinkMethodReply."""
+        return VarlinkMethodReply(self.paramstojson(), error=self.name)
+
     def tojson(self) -> JSONObject:
         """Represent the entire error as a JSONObject."""
-        result: JSONObject = {"error": self.name}
-        params = self.paramstojson()
-        if params:
-            result["parameters"] = params
-        return result
+        return self.toreply().tojson()
 
 
 class GenericVarlinkErrorReply(VarlinkErrorReply):

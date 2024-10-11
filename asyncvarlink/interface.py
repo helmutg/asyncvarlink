@@ -76,6 +76,20 @@ _MethodResultType = (
 )
 
 
+def _params_to_varlinkobj(
+    params: typing.Iterator[tuple[str, inspect.Parameter]]
+) -> ObjectVarlinkType:
+    required_parameters = {}
+    optional_parameters = {}
+    for name, tobj in params:
+        vtype = VarlinkType.from_type_annotation(tobj.annotation)
+        if tobj.default is tobj.empty:
+            required_parameters[name] = vtype
+        else:
+            optional_parameters[name] = vtype
+    return ObjectVarlinkType(required_parameters, optional_parameters)
+
+
 @typing.overload
 def varlinkmethod(
     function: typing.Callable[_P, _R],
@@ -165,18 +179,10 @@ def varlinkmethod(
             def make_result(result: _R) -> AnnotatedResult:
                 return AnnotatedResult({return_parameter: result})
 
-        required_parameters = {}
-        optional_parameters = {}
-        for name, tobj in param_iterator:
-            vtype = VarlinkType.from_type_annotation(tobj.annotation)
-            if tobj.default is tobj.empty:
-                required_parameters[name] = vtype
-            else:
-                optional_parameters[name] = vtype
         vlsig = VarlinkMethodSignature(
             asynchronous,
             more,
-            ObjectVarlinkType(required_parameters, optional_parameters),
+            _params_to_varlinkobj(param_iterator),
             return_vtype,
         )
         wrapped: typing.Callable[_P, typing.Any]

@@ -29,8 +29,8 @@ class VarlinkMethodSignature:
     more: bool
     """Indicates whether the method returns and iterable or not."""
 
-    parameter_types: dict[str, VarlinkType]
-    """A map of types for the parameters."""
+    parameter_type: ObjectVarlinkType
+    """A type for the call parameters."""
 
     return_type: ObjectVarlinkType
     """A type for the return parameters."""
@@ -165,13 +165,18 @@ def varlinkmethod(
             def make_result(result: _R) -> AnnotatedResult:
                 return AnnotatedResult({return_parameter: result})
 
+        required_parameters = {}
+        optional_parameters = {}
+        for name, tobj in param_iterator:
+            vtype = VarlinkType.from_type_annotation(tobj.annotation)
+            if tobj.default is tobj.empty:
+                required_parameters[name] = vtype
+            else:
+                optional_parameters[name] = vtype
         vlsig = VarlinkMethodSignature(
             asynchronous,
             more,
-            {
-                name: VarlinkType.from_type_annotation(tobj.annotation)
-                for name, tobj in param_iterator
-            },
+            ObjectVarlinkType(required_parameters, optional_parameters),
             return_vtype,
         )
         wrapped: typing.Callable[_P, typing.Any]
@@ -350,12 +355,8 @@ class VarlinkInterface:
             obj = getattr(self, name)
             if (signature := varlinksignature(obj)) is None:
                 continue
-            param_desc = ", ".join(
-                f"{name}: {vtype.as_varlink}"
-                for name, vtype in signature.parameter_types.items()
-            )
             lines.append(
-                f"method {name}({param_desc}) -> "
+                f"method {name}{signature.parameter_type.as_varlink} -> "
                 f"{signature.return_type.as_varlink}"
             )
         lines.append("")

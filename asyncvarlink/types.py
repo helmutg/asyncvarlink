@@ -74,10 +74,8 @@ class OwnedFileDescriptors:
         return any(fd is not None for fd in self._fds)
 
     def __eq__(self, other: object) -> bool:
-        print("comparing", self, other)
         if not isinstance(other, OwnedFileDescriptors):
             return False
-        print("comparing fds", self._fds, other._fds)
         if len(self._fds) != len(other._fds):
             return False
         return all(

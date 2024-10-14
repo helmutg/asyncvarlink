@@ -8,7 +8,7 @@ import asyncio
 from .error import VarlinkErrorReply, GenericVarlinkErrorReply
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
-from .types import JSONObject, OwnedFileDescriptors
+from .types import FileDescriptorArray, JSONObject
 
 
 class VarlinkServerProtocol(VarlinkProtocol):
@@ -30,7 +30,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
         return self.send_message(reply.tojson(), fds, autoclose)
 
     def request_received(
-        self, obj: JSONObject, fds: OwnedFileDescriptors
+        self, obj: JSONObject, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:
         try:
             try:
@@ -44,12 +44,12 @@ class VarlinkServerProtocol(VarlinkProtocol):
             return None
 
     def call_received(
-        self, call: VarlinkMethodCall, fds: OwnedFileDescriptors
+        self, call: VarlinkMethodCall, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:
         """Handle a received varlink parsed as a call object and associated
-        file descriptors. The descriptors are valid until the function returns
-        None or the returned future is complete. The function should call the
-        send_reply method as needed or raise a VarlinkErrorReply to be sent by
-        the caller.
+        file descriptors. The descriptors are valid until the function returns.
+        Their life time can be extended by adding a referee before returning.
+        The function should call the send_reply method as needed or raise a
+        VarlinkErrorReply to be sent by the caller.
         """
         raise NotImplementedError

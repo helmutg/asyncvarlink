@@ -3,6 +3,7 @@
 
 """Basic type definitions."""
 
+import asyncio
 import os
 import re
 import typing
@@ -58,12 +59,68 @@ def close_fileno(thing: HasFileno) -> None:
         closemeth()
 
 
-class OwnedFileDescriptors:
-    """Represent an array of owned file descriptors."""
+class FutureCounted:
+    """A reference counting base class. References are not simply counted.
+    Instead referees are tracked individually. Any referee must be released
+    eventually by calling release. Once all referees are gone, the destroy
+    method is called once.
+    """
+
+    def __init__(self, initial: typing.Any) -> None:
+        """The constructor consumes an initial referee. Otherwise, it would be
+        immediately destroyed.
+        """
+        self._references: set[int] = {id(initial)}
+
+    def reference(self, referee: typing.Any) -> None:
+        """Record an object as referee. The referee should be either passed to
+        release once or garbage collected by Python.
+        """
+        if not self._references:
+            raise RuntimeError("cannot reference destroyed object")
+        objid = id(referee)
+        assert objid not in self._references
+        self._references.add(objid)
+
+    def reference_until_done(self, fut: asyncio.Future[typing.Any]) -> None:
+        """Reference this object until the passed future is done."""
+        self.reference(fut)
+        fut.add_done_callback(self.release)
+
+    def release(self, referee: typing.Any) -> None:
+        """Release the reference identified by the given referee. If this was
+        the last reference, this object is destroyed. Releasing a referee that
+        was not referenced is an error as is releasing a referee twice.
+        """
+        objid = id(referee)
+        try:
+            self._references.remove(objid)
+        except KeyError:
+            raise RuntimeError(
+                f"releasing reference to unregistered object {referee!r}"
+            ) from None
+        if not self._references:
+            self.destroy()
+
+    def destroy(self) -> None:
+        """Called when the last reference is released."""
+        raise NotImplementedError
+
+
+class FileDescriptorArray(FutureCounted):
+    """Represent an array of file descriptors owned and eventually released by
+    the array. The lifetime can be controlled in two ways. Responsibility for
+    individual file descriptors can be assumed by using the take method and
+    thus removing them from the array. The lifetime of the entire array can
+    be extended using the FutureCounted mechanism inherited from.
+    """
 
     def __init__(
-        self, fds: typing.Iterable[HasFileno | int | None] | None = None
+        self,
+        initial_referee: typing.Any,
+        fds: typing.Iterable[HasFileno | int | None] | None = None,
     ):
+        super().__init__(initial_referee)
         self._fds: list[HasFileno | None] = [
             fd if fd is None else FileDescriptor.upgrade(fd)
             for fd in fds or ()
@@ -74,7 +131,7 @@ class OwnedFileDescriptors:
         return any(fd is not None for fd in self._fds)
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, OwnedFileDescriptors):
+        if not isinstance(other, FileDescriptorArray):
             return False
         if len(self._fds) != len(other._fds):
             return False
@@ -108,6 +165,7 @@ class OwnedFileDescriptors:
                 close_fileno(fd)
 
     __del__ = close
+    destroy = close
 
 
 def validate_interface(interface: str) -> None:

@@ -6,9 +6,9 @@ import unittest
 from unittest.mock import Mock
 
 from asyncvarlink import (
+    FileDescriptorArray,
     JSONObject,
     JSONValue,
-    OwnedFileDescriptors,
     VarlinkMethodCall,
     VarlinkMethodReply,
     VarlinkProtocol,
@@ -23,9 +23,6 @@ async def wait_called(mock: Mock) -> None:
         await asyncio.sleep(0.01 * delay)
 
 
-NO_FDS = OwnedFileDescriptors()
-
-
 class TransportTests(unittest.IsolatedAsyncioTestCase):
     async def test_receive_socket(self) -> None:
         protocol = VarlinkProtocol()
@@ -37,7 +34,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             )
             sock2.send(b"hello")
             await wait_called(protocol.message_received)
-        protocol.message_received.assert_called_once_with(b"hello", NO_FDS)
+        protocol.message_received.assert_called_once_with(b"hello", None)
 
     async def test_receive_socket_eof(self) -> None:
         protocol = VarlinkProtocol()
@@ -64,7 +61,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         finally:
             os.close(pipe2)
             os.close(pipe1)
-        protocol.message_received.assert_called_once_with(b"hello", NO_FDS)
+        protocol.message_received.assert_called_once_with(b"hello", None)
 
     async def test_receive_pipe_eof(self) -> None:
         protocol = VarlinkProtocol()
@@ -103,10 +100,10 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
                 asyncio.get_running_loop(), pipe1, pipe2, protocol
             )
             protocol.request_received = Mock()
-            protocol.message_received(b'{"hello":"world"}\0', NO_FDS)
+            protocol.message_received(b'{"hello":"world"}\0', None)
             await wait_called(protocol.request_received)
             protocol.request_received.assert_called_once_with(
-                {"hello": "world"}, NO_FDS
+                {"hello": "world"}, None
             )
         finally:
             os.close(pipe2)
@@ -120,7 +117,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
                 asyncio.get_running_loop(), pipe1, pipe2, protocol
             )
             protocol.error_received = Mock(wraps=protocol.error_received)
-            protocol.message_received(b"}\0", NO_FDS)
+            protocol.message_received(b"}\0", None)
             await wait_called(protocol.error_received)
             protocol.error_received.assert_called_once()
         finally:
@@ -137,15 +134,15 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             protocol.request_received = Mock(side_effect=futs)
             await asyncio.sleep(0)
             self.assertFalse(transport._paused)
-            protocol.message_received(b'{"a":0}\0{"b":0}\0', NO_FDS)
+            protocol.message_received(b'{"a":0}\0{"b":0}\0', None)
             await asyncio.sleep(0)
             self.assertTrue(transport._paused)
-            protocol.request_received.assert_called_once_with({"a": 0}, NO_FDS)
+            protocol.request_received.assert_called_once_with({"a": 0}, None)
             self.assertTrue(transport._paused)
             futs[0].set_result(None)
             await asyncio.sleep(0)
             self.assertTrue(transport._paused)
-            protocol.request_received.assert_called_with({"b": 0}, NO_FDS)
+            protocol.request_received.assert_called_with({"b": 0}, None)
             await asyncio.sleep(0)
             self.assertTrue(transport._paused)
             futs[1].set_result(None)
@@ -164,11 +161,11 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             )
             protocol.request_received = Mock()
             await asyncio.sleep(0)
-            protocol.message_received(b'{"a":0}\0{"b":0}\0', NO_FDS)
+            protocol.message_received(b'{"a":0}\0{"b":0}\0', None)
             await wait_called(protocol.request_received)
-            protocol.request_received.assert_called_once_with({"a": 0}, NO_FDS)
+            protocol.request_received.assert_called_once_with({"a": 0}, None)
             await asyncio.sleep(0)
-            protocol.request_received.assert_called_with({"b": 0}, NO_FDS)
+            protocol.request_received.assert_called_with({"b": 0}, None)
         finally:
             os.close(pipe2)
             os.close(pipe1)

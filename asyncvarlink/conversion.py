@@ -8,7 +8,7 @@ import enum
 import types
 import typing
 
-from .types import FileDescriptor, JSONValue, OwnedFileDescriptors
+from .types import FileDescriptor, FileDescriptorArray, JSONValue
 
 
 class ConversionError(Exception):
@@ -505,7 +505,7 @@ class FileDescriptorVarlinkType(VarlinkType):
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
         """Unrepresent a file descriptor. The int value is understood as an
-        index into the out-of-band state object of type OwnedFileDescriptors. A
+        index into the out-of-band state object of type FileDescriptorArray. A
         file descriptor is looked up at the index and the position is released
         there.
         """
@@ -515,14 +515,18 @@ class FileDescriptorVarlinkType(VarlinkType):
             raise ConversionError(
                 "cannot unrepresent a file descriptor without oobstate"
             )
-        ownedfds = self._get_oob(oobstate)
-        if not isinstance(ownedfds, OwnedFileDescriptors):
+        fds = self._get_oob(oobstate)
+        if fds is None:
+            raise ConversionError(
+                f"attempt to convert invalid file descriptor index {obj}"
+            )
+        if not isinstance(fds, FileDescriptorArray):
             raise ConversionError(
                 f"out-of-band state for {self.__class__.__name__} should be "
-                f"OwnedFileDescriptors, is {type(ownedfds)}"
+                f"FileDescriptorArray, is {type(fds)}"
             )
         try:
-            return ownedfds.take(obj)
+            return fds.take(obj)
         except IndexError as err:
             raise ConversionError(
                 f"attempt to convert invalid file descriptor index {obj}"

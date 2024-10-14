@@ -10,13 +10,13 @@ from asyncvarlink import (
     DictVarlinkType,
     EnumVarlinkType,
     FileDescriptor,
+    FileDescriptorArray,
     FileDescriptorVarlinkType,
     ForeignVarlinkType,
     JSONValue,
     ListVarlinkType,
     ObjectVarlinkType,
     OptionalVarlinkType,
-    OwnedFileDescriptors,
     SetVarlinkType,
     SimpleVarlinkType,
     VarlinkType,
@@ -131,11 +131,12 @@ class ConversionTests(unittest.TestCase):
         fdlist: list[int | None] = []
         oobto: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdlist}
         val = vt.tojson(obj, oobto)
-        ownedfds = OwnedFileDescriptors(fdlist)
+        ownedfds = FileDescriptorArray(fdlist, fdlist)
         oobfrom: dict[type, typing.Any] = {FileDescriptorVarlinkType: ownedfds}
         obj_again = vt.fromjson(val, oobfrom)
         self.assertEqual(obj, obj_again)
         self.assertFalse(bool(ownedfds))
+        ownedfds.release(fdlist)
 
     @hypothesis.given(type_annotations, json_values)
     def test_exception(self, ta: type, val: JSONValue) -> None:

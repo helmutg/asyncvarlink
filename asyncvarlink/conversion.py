@@ -8,7 +8,7 @@ import enum
 import types
 import typing
 
-from .types import FileDescriptor, FileDescriptorArray, JSONValue
+from .types import FileDescriptor, FileDescriptorArray, JSONValue, JSONObject
 
 
 class ConversionError(Exception):
@@ -223,7 +223,7 @@ class ListVarlinkType(VarlinkType):
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
-    ) -> JSONValue:
+    ) -> list[JSONValue]:
         if not isinstance(obj, list):
             raise ConversionError.expected("list", obj)
         result: list[JSONValue] = []
@@ -260,7 +260,7 @@ class DictVarlinkType(VarlinkType):
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
-    ) -> JSONValue:
+    ) -> JSONObject:
         if not isinstance(obj, dict):
             raise ConversionError.expected("dict", obj)
         result = {}
@@ -298,7 +298,7 @@ class SetVarlinkType(VarlinkType):
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
-    ) -> JSONValue:
+    ) -> JSONObject:
         if not isinstance(obj, set):
             raise ConversionError.expected("set", obj)
         result: dict[str, JSONValue] = {}
@@ -362,7 +362,7 @@ class ObjectVarlinkType(VarlinkType):
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
-    ) -> JSONValue:
+    ) -> JSONObject:
         if not isinstance(obj, dict):
             raise ConversionError.expected("dict", obj)
         result = {}
@@ -430,9 +430,7 @@ class EnumVarlinkType(VarlinkType):
         self.as_type = enumtype
         self.as_varlink = "(%s)" % ", ".join(enumtype.__members__)
 
-    def tojson(
-        self, obj: typing.Any, oobstate: OOBTypeState = None
-    ) -> JSONValue:
+    def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> str:
         if not isinstance(obj, self.as_type):
             raise ConversionError.expected(f"enum {self.as_type!r}", obj)
         assert isinstance(obj, enum.Enum)
@@ -476,9 +474,7 @@ class FileDescriptorVarlinkType(VarlinkType):
                 "cannot convert a file descriptor without associated oobstate"
             ) from None
 
-    def tojson(
-        self, obj: typing.Any, oobstate: OOBTypeState = None
-    ) -> JSONValue:
+    def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> int:
         """Represent a file descriptor. It may be conveyed as int | HasFileno.
         The actual file descriptor is appended to the out-of-band state array
         and the returned json value is the index into said array. A list[int]

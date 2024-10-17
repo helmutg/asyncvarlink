@@ -352,6 +352,21 @@ class VarlinkInterface:
     name: str
     """The name of the varlink interface in dotted reverse domain notation."""
 
+    def __init_subclass__(
+        cls: type["VarlinkInterface"], *, name: str | None = None
+    ) -> None:
+        if cls.name is None:
+            if name is None:
+                raise RuntimeError(
+                    "VarlinkInterface subclasses must define an interface name"
+                )
+            cls.name = name
+        elif name is not None:
+            raise RuntimeError(
+                "cannot specify VarlinkInterface name both via inheritance "
+                "and attribute"
+            )
+
     def render_interface_description(self) -> str:
         """Render a varlink interface description from this interface.
         Refer to https://varlink.org/Interface-Definition.

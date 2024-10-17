@@ -9,7 +9,7 @@ import inspect
 import typing
 
 from .conversion import ObjectVarlinkType, VarlinkType
-from .types import JSONObject
+from .types import JSONObject, validate_interface
 
 
 _P = typing.ParamSpec("_P")
@@ -366,6 +366,10 @@ class VarlinkInterface:
                 "cannot specify VarlinkInterface name both via inheritance "
                 "and attribute"
             )
+        try:
+            validate_interface(cls.name)
+        except ValueError as err:
+            raise RuntimeError("invalid VarlinkInterface name") from err
 
     def render_interface_description(self) -> str:
         """Render a varlink interface description from this interface.

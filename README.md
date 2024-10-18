@@ -13,6 +13,49 @@ implementation](https://github.com/varlink/python) are:
    passing file descriptors out of scope, `systemd` uses it and it is an
    important feature also implemented here.
 
+Usage
+=====
+
+Here is an example for defining an interface. If it is to be used by a server,
+the methods need to be implemented of course, but on the client side, typed
+stubs will do.
+
+    class Direction(enum.Enum):
+        left = "left"
+        right = "right"
+
+    class DemoInterface(VarlinkInterface, name="com.example.demo"):
+        @varlinkmethod(return_parameter="direction")
+        def Reverse(self, *, value: Direction) -> Direction:
+            return Direction.left if value == Direction.right else Direction.right
+
+        @varlinkmethod(return_parameter="value")
+        def Range(self, *, count: int) -> typing.Iterable[int]:
+            return range(count)
+
+        @varlinkmethod(return_parameter="done")
+        async def Sleep(self, *, delay: float) -> None:
+            await asyncio.sleep(delay)
+
+Setting up a service is now a matter of plugging things together.
+
+    registry = VarlinkInterfaceRegistry()
+    registry.register_interface(
+        VarlinkServiceInterface(
+            "ExampleVendor",
+            "DemonstrationProduct",
+            "1.0",
+            "https://github.com/helmutg/asyncvarlink",
+            registry,
+        ),
+    )
+    registry.register_interface(DemoInterface())
+    protocol = VarlinkInterfaceServerProtocol(registry)
+    VarlinkTransport(loop, 0, 1, protocol)  # serve on stdin/stdout
+
+When communicating via stdio, `varlinkctl` from `systemd` may be used to
+interact with a service.
+
 Collaboration
 =============
 

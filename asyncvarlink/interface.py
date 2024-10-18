@@ -359,17 +359,20 @@ class VarlinkInterface:
     def __init_subclass__(
         cls: type["VarlinkInterface"], *, name: str | None = None
     ) -> None:
-        if cls.name is None:
+        try:
+            cls.name
+        except AttributeError:
             if name is None:
                 raise RuntimeError(
                     "VarlinkInterface subclasses must define an interface name"
-                )
+                ) from None
             cls.name = name
-        elif name is not None:
-            raise RuntimeError(
-                "cannot specify VarlinkInterface name both via inheritance "
-                "and attribute"
-            )
+        else:
+            if name is not None:
+                raise RuntimeError(
+                    "cannot specify VarlinkInterface name both via "
+                    "inheritance and attribute"
+                )
         try:
             validate_interface(cls.name)
         except ValueError as err:

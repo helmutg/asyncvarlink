@@ -63,10 +63,8 @@ class VarlinkInterfaceRegistry:
         return self.interfaces[interface]
 
 
-class VarlinkServiceInterface(VarlinkInterface):
+class VarlinkServiceInterface(VarlinkInterface, name="org.varlink.service"):
     """Implementation of the basic varlink introspection interface."""
-
-    name = "org.varlink.service"
 
     class _GetInfoResult(typing.TypedDict):
         vendor: str

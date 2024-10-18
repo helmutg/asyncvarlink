@@ -24,7 +24,7 @@ from .types import (
 logger = logging.getLogger("asyncvarlink.protocol")
 
 
-SENTINEL = object()
+_SENTINEL = object()
 
 
 def _check_socket(thing: socket.socket | int | HasFileno) -> HasFileno:
@@ -134,12 +134,12 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._close_receiver()
             return
         if msg:
-            ownedfds = FileDescriptorArray(SENTINEL, fds) if fds else None
+            ownedfds = FileDescriptorArray(_SENTINEL, fds) if fds else None
             try:
                 self._protocol.message_received(msg, ownedfds)
             finally:
                 if ownedfds:
-                    ownedfds.release(SENTINEL)
+                    ownedfds.release(_SENTINEL)
         else:
             for fd in fds:
                 os.close(fd)

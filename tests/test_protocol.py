@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import Mock
 
 from asyncvarlink import (
-    FileDescriptorArray,
     JSONObject,
     JSONValue,
     VarlinkMethodCall,

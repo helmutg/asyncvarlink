@@ -231,7 +231,9 @@ def varlinkmethod(
                             if isinstance(result, AnnotatedResult):
                                 yield result
                             else:
-                                yield make_result(result)
+                                ares = make_result(result)
+                                ares.continues = True
+                                yield ares
                     except LastResult as exc:
                         if isinstance(exc.value, AnnotatedResult):
                             yield exc.value
@@ -283,7 +285,9 @@ def varlinkmethod(
                             if isinstance(result, AnnotatedResult):
                                 yield result
                             else:
-                                yield make_result(result)
+                                ares = make_result(result)
+                                ares.continues = True
+                                yield ares
                     except LastResult as exc:
                         if isinstance(exc.value, AnnotatedResult):
                             yield exc.value

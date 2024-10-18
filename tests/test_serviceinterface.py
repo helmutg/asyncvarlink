@@ -3,16 +3,22 @@ import unittest
 from asyncvarlink.interface import AnnotatedResult
 from asyncvarlink.serviceinterface import (
     InterfaceNotFound,
+    VarlinkInterfaceRegistry,
     VarlinkServiceInterface,
 )
 
 
 class TestServiceInterface(unittest.TestCase):
     def setUp(self) -> None:
+        self.reg = VarlinkInterfaceRegistry()
         self.vsi = VarlinkServiceInterface(
-            "examplevendor", "exampleproduct", "1.0", "https://example.com"
+            "examplevendor",
+            "exampleproduct",
+            "1.0",
+            "https://example.com",
+            self.reg,
         )
-        self.vsi.register(self.vsi)
+        self.reg.register_interface(self.vsi)
 
     def test_getinfo(self) -> None:
         self.assertEqual(self.vsi.name, "org.varlink.service")

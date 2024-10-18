@@ -6,7 +6,61 @@
 import typing
 
 from .error import TypedVarlinkErrorReply
-from .interface import VarlinkInterface, varlinkmethod
+from .message import VarlinkMethodCall
+from .interface import (
+    VarlinkInterface,
+    VarlinkMethodSignature,
+    varlinkmethod,
+    varlinksignature,
+)
+
+
+class VarlinkInterfaceRegistry:
+    """Collection of VarlinkInterface instances."""
+
+    def __init__(self) -> None:
+        self.interfaces: dict[str, VarlinkInterface] = {}
+
+    def register_interface(self, interface: VarlinkInterface) -> None:
+        """Register an interface instance. Its name must be unique to the
+        registry.
+        """
+        if interface.name in self.interfaces:
+            raise ValueError(
+                f"an interface named {interface.name} is already registered"
+            )
+        self.interfaces[interface.name] = interface
+
+    def lookup_method(
+        self, call: VarlinkMethodCall
+    ) -> tuple[typing.Callable[..., typing.Any], VarlinkMethodSignature]:
+        """Look up a method. Return the Python callable responsible for the
+        method referenced by the call and its VarlinkMethodSignature used
+        for introspection and type conversion. This raises a number of
+        subclasses of VarlinkErrorReply.
+        """
+        try:
+            interface = self.interfaces[call.method_interface]
+        except KeyError:
+            raise InterfaceNotFound(interface=call.method_interface) from None
+        try:
+            method = getattr(interface, call.method_name)
+        except AttributeError:
+            raise MethodNotFound(method=call.method_name) from None
+        if (signature := varlinksignature(method)) is None:
+            # Reject any method that has not been marked with varlinkmethod.
+            raise MethodNotFound(method=call.method_name)
+        if signature.more and not call.more:
+            raise ExpectedMore()
+        return (method, signature)
+
+    def __iter__(self) -> typing.Iterator[VarlinkInterface]:
+        """Iterate over the registered VarlinkInterface instances."""
+        return iter(self.interfaces.values())
+
+    def __getitem__(self, interface: str) -> VarlinkInterface:
+        """Look up a VarlinkInterface by its name. Raises KeyError."""
+        return self.interfaces[interface]
 
 
 class VarlinkServiceInterface(VarlinkInterface):
@@ -21,9 +75,16 @@ class VarlinkServiceInterface(VarlinkInterface):
         url: str
         interfaces: list[str]
 
-    def __init__(self, vendor: str, product: str, version: str, url: str):
+    def __init__(
+        self,
+        vendor: str,
+        product: str,
+        version: str,
+        url: str,
+        registry: VarlinkInterfaceRegistry,
+    ):
         """Construct an introspection interface object from the given
-        metadata.
+        metadata and a VarlinkInterfaceRegistry for introspection.
         """
         self._info: VarlinkServiceInterface._GetInfoResult = {
             "vendor": vendor,
@@ -32,30 +93,20 @@ class VarlinkServiceInterface(VarlinkInterface):
             "url": url,
             "interfaces": [],
         }
-        self._interfaces: dict[str, VarlinkInterface] = {}
-
-    def register(self, interface: VarlinkInterface) -> None:
-        """Register a VarlinkInterface instance with the introspection
-        interface such that its GetInfo method will list the given
-        interface and GetInterfaceDescription will provide a rendered
-        description.
-        """
-        if interface.name in self._interfaces:
-            raise ValueError(
-                f"an interface named {interface.name} is already registered"
-            )
-        self._interfaces[interface.name] = interface
+        self._registry = registry
 
     @varlinkmethod
     def GetInfo(self) -> _GetInfoResult:
         """Refer to https://varlink.org/Service."""
-        return self._info | {"interfaces": sorted(self._interfaces.keys())}
+        return self._info | {
+            "interfaces": sorted(iface.name for iface in self._registry)
+        }
 
     @varlinkmethod(return_parameter="description")
     def GetInterfaceDescription(self, *, interface: str) -> str:
         """Refer to https://varlink.org/Service."""
         try:
-            iface = self._interfaces[interface]
+            iface = self._registry[interface]
         except KeyError:
             raise InterfaceNotFound(interface=interface) from None
         return iface.render_interface_description()

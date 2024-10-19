@@ -80,7 +80,7 @@ def type_annotations() -> st.SearchStrategy:
 class MockedFd(FileDescriptor):
     """Looks like file descriptor, but isn't and swallows close."""
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 

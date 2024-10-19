@@ -22,7 +22,7 @@ class TestInterface(unittest.TestCase):
         class SyncInterface(VarlinkInterface):
             name = "com.example.SyncInterface"
 
-            def __init__(self):
+            def __init__(self) -> None:
                 self.gen_state = -1
                 self.genr_state = -1
                 self.geni_state = -1

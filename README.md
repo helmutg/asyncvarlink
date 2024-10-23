@@ -33,7 +33,7 @@ stubs will do.
         def Range(self, *, count: int) -> typing.Iterable[int]:
             return range(count)
 
-        @varlinkmethod(return_parameter="done")
+        @varlinkmethod
         async def Sleep(self, *, delay: float) -> None:
             await asyncio.sleep(delay)
 

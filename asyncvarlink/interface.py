@@ -164,20 +164,27 @@ def varlinkmethod(
             more = True
         return_vtype = VarlinkType.from_type_annotation(return_type)
         make_result: typing.Callable[[_R], AnnotatedResult]
-        if return_parameter is None:
-            if not isinstance(return_vtype, ObjectVarlinkType):
-                raise TypeError("a varlinkmethod must return a mapping")
-            # mypy cannot figure out that a type also is a Callable.
-            make_result = typing.cast(
-                typing.Callable[[_R], AnnotatedResult], AnnotatedResult
-            )
-        else:
+        if return_parameter is not None:
             return_vtype = ObjectVarlinkType(
                 {return_parameter: return_vtype}, {}
             )
 
             def make_result(result: _R) -> AnnotatedResult:
                 return AnnotatedResult({return_parameter: result})
+
+        elif return_type is None:
+            return_vtype = ObjectVarlinkType({}, {})
+
+            def make_result(_result: _R) -> AnnotatedResult:
+                return AnnotatedResult({})
+
+        elif not isinstance(return_vtype, ObjectVarlinkType):
+            raise TypeError("a varlinkmethod must return a mapping")
+        else:
+            # mypy cannot figure out that a type also is a Callable.
+            make_result = typing.cast(
+                typing.Callable[[_R], AnnotatedResult], AnnotatedResult
+            )
 
         vlsig = VarlinkMethodSignature(
             asynchronous,

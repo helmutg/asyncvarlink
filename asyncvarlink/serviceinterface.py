@@ -5,7 +5,6 @@
 
 import typing
 
-from .error import TypedVarlinkErrorReply
 from .message import VarlinkMethodCall
 from .interface import (
     VarlinkInterface,
@@ -13,7 +12,7 @@ from .interface import (
     varlinkmethod,
     varlinksignature,
 )
-from .serviceerrors import *
+from .serviceerrors import ExpectedMore, InterfaceNotFound, MethodNotFound
 
 
 class VarlinkInterfaceRegistry:

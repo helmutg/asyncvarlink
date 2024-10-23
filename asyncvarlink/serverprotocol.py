@@ -11,7 +11,8 @@ from .error import VarlinkErrorReply, GenericVarlinkErrorReply
 from .interface import AnnotatedResult, VarlinkMethodSignature
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
-from .serviceinterface import InvalidParameter, VarlinkInterfaceRegistry
+from .serviceerrors import InvalidParameter
+from .serviceinterface import VarlinkInterfaceRegistry
 from .types import FileDescriptorArray, JSONObject
 
 

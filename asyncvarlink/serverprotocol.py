@@ -8,11 +8,14 @@ import typing
 
 from .conversion import ConversionError, FileDescriptorVarlinkType
 from .error import VarlinkErrorReply, GenericVarlinkErrorReply
-from .interface import AnnotatedResult, VarlinkMethodSignature
+from .interface import (
+    AnnotatedResult,
+    VarlinkInterfaceRegistry,
+    VarlinkMethodSignature,
+)
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
 from .serviceerrors import InvalidParameter
-from .serviceinterface import VarlinkInterfaceRegistry
 from .types import FileDescriptorArray, JSONObject
 
 

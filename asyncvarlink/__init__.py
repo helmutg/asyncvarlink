@@ -17,7 +17,6 @@ from .error import *
 from .interface import *
 from .message import *
 from .protocol import *
-from .serviceinterface import VarlinkInterfaceRegistry
 from .serverprotocol import *
 from .types import *
 from .util import *

@@ -21,7 +21,8 @@ from .types import (
     close_fileno,
 )
 
-logger = logging.getLogger("asyncvarlink.protocol")
+
+_logger = logging.getLogger("asyncvarlink.protocol")
 
 
 _SENTINEL = object()
@@ -129,7 +130,9 @@ class VarlinkTransport(asyncio.BaseTransport):
         except OSError as err:
             if err.errno in _BLOCKING_ERRNOS:
                 return
-            logger.debug("%r: reading from socket failed", self, exc_info=True)
+            _logger.debug(
+                "%r: reading from socket failed", self, exc_info=True
+            )
             self._loop.remove_reader(self._recvfd)
             self._close_receiver()
             return
@@ -156,7 +159,9 @@ class VarlinkTransport(asyncio.BaseTransport):
         except OSError as err:
             if err.errno in _BLOCKING_ERRNOS:
                 return
-            logger.debug("%r: reading from socket failed", self, exc_info=True)
+            _logger.debug(
+                "%r: reading from socket failed", self, exc_info=True
+            )
             self._loop.remove_reader(self._recvfd)
             self._close_receiver()
             return
@@ -208,7 +213,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         if fds is None:
             fds = []
         if self._closing:
-            logger.warning("%r: attempt to write to closed transport", self)
+            _logger.warning("%r: attempt to write to closed transport", self)
             fut = self._loop.create_future()
             fut.set_exception(OSError(errno.EPIPE, "Broken pipe"))
             return fut
@@ -252,7 +257,7 @@ class VarlinkTransport(asyncio.BaseTransport):
                 if err.errno in _BLOCKING_ERRNOS:
                     self._sendqueue.appendleft((data, fds, fut))
                 else:
-                    logger.debug("%r: sending failed", self, exc_info=True)
+                    _logger.debug("%r: sending failed", self, exc_info=True)
                     self._close_sender()
                     fut.set_exception(err)
                 return

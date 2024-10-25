@@ -32,7 +32,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             type=socket.SOCK_STREAM | socket.SOCK_NONBLOCK
         )
         try:
-            VarlinkTransport(
+            transport = VarlinkTransport(
                 loop,
                 sock2,
                 sock2,
@@ -44,5 +44,10 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             data = await loop.sock_recv(sock1, 1024)
             self.assertEqual(data, b'{"parameters": {"result": 42}}\0')
         finally:
+            if transport:
+                transport.close()
+                await asyncio.sleep(0)
+                self.assertLess(sock2.fileno(), 0)
+            else:
+                sock2.close()
             sock1.close()
-            sock2.close()

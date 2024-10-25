@@ -117,7 +117,10 @@ class VarlinkTransport(asyncio.BaseTransport):
             return
         if self._sendfd is None:
             self._closing = True
-        elif self._recvfd.fileno() != self._sendfd.fileno():
+        if (
+            self._sendfd is None
+            or self._recvfd.fileno() != self._sendfd.fileno()
+        ):
             close_fileno(self._recvfd)
         self._recvfd = None
 
@@ -240,7 +243,10 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._loop.remove_writer(self._sendfd)
         if self._recvfd is None:
             self._closing = True
-        elif self._recvfd.fileno() != self._sendfd.fileno():
+        if (
+            self._recvfd is None
+            or self._recvfd.fileno() != self._sendfd.fileno()
+        ):
             close_fileno(self._sendfd)
         self._sendfd = None
         while self._sendqueue:

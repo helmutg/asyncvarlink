@@ -13,8 +13,20 @@ implementation](https://github.com/varlink/python) are:
    passing file descriptors out of scope, `systemd` uses it and it is an
    important feature also implemented here.
 
-Usage
-=====
+Client usage
+============
+
+The `VarlinkServiceInterface` class represents the `org.varlink.service`
+introspection interface. We can use it to introspect `systemd-hostnamed`.
+
+    _, p = await connect_unix_varlink(
+        loop, VarlinkClientProtocol, "/run/systemd/io.systemd.Hostname"
+    )
+    i = VarlinkInterfaceProxy(p, VarlinkServiceInterface)
+    print(await ip.GetInfo())
+
+Server usage
+============
 
 Here is an example for defining an interface. If it is to be used by a server,
 the methods need to be implemented of course, but on the client side, typed

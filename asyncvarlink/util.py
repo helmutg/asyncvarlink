@@ -4,12 +4,49 @@
 """Utility functions that don't fit well elsewhere."""
 
 import asyncio
+import contextlib
 import os
 import socket
 import typing
 
 from .protocol import VarlinkProtocol, VarlinkTransport
 from .types import FileDescriptor
+
+
+_T = typing.TypeVar("_T")
+
+
+@typing.overload
+def completing_future() -> typing.ContextManager[asyncio.Future[None]]: ...
+
+
+@typing.overload
+def completing_future(
+    value: _T,
+) -> typing.ContextManager[asyncio.Future[_T]]: ...
+
+
+@contextlib.contextmanager
+def completing_future(
+    value: typing.Any = None,
+) -> typing.Iterator[asyncio.Future[typing.Any]]:
+    """A context manager that returns a new asyncio.Future which will be done
+    with the passed value on context exit unless the context exits with an
+    exception in which case the future also raises the exception. Even though
+    this is a synchronous context manager, it must be used in an asynchronous
+    context.
+    """
+    future = asyncio.get_running_loop().create_future()
+    done = False
+    try:
+        yield future
+    except BaseException as exc:
+        future.set_exception(exc)
+        done = True
+        raise
+    finally:
+        if not done:
+            future.set_result(value)
 
 
 async def connect_unix_varlink(

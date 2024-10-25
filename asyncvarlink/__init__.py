@@ -12,6 +12,7 @@
    computed from Python type annotations.
 """
 
+from .clientprotocol import *
 from .conversion import *
 from .error import *
 from .interface import *

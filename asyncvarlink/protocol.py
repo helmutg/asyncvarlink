@@ -117,6 +117,8 @@ class VarlinkTransport(asyncio.BaseTransport):
             return
         if self._sendfd is None:
             self._closing = True
+        if not self._paused:
+            self._loop.remove_reader(self._recvfd)
         if (
             self._sendfd is None
             or self._recvfd.fileno() != self._sendfd.fileno()

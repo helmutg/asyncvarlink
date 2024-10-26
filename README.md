@@ -129,6 +129,20 @@ defer closing. Additionally, individual file descriptors may be removed from
 the array using the `take` method. When doing so, responsibility for closing a
 taken file descriptor is transferred to the caller.
 
+The type conversion between JSON and Python objects is mostly straight forward.
+Basic types such as `bool`, `int`, `float` and `str` map trivially. The `list`
+type must be used homogeneously and is traversed while `dict` may be used
+homogeneously or inhomogeneous (as a `typing.TypedDict`) with `str` keys in all
+cases. Values can be made optional in most cases and Python `set` is
+represented as a mapping from strings to empty objects. Subclasses of
+`enum.Enum` are turned into strings and the introspection reports them as
+enums. File descriptors tagged with the `FileDescriptor` wrapper are
+represented as integer indices into a separately passed array of file
+descriptors on the transport layer.
+
+For details of any of the mentioned classes, please refer to the docstrings
+e.g. by using `pydoc`.
+
 Collaboration
 =============
 

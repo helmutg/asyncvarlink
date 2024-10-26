@@ -66,7 +66,8 @@ Setting up a service is now a matter of plugging things together.
     VarlinkTransport(loop, 0, 1, protocol)  # serve on stdin/stdout
 
 When communicating via stdio, `varlinkctl` from `systemd` may be used to
-interact with a service.
+interact with a service. Registering a `VarlinkServiceInterface` implementing
+the `org.varlink.service` introspection interface is optional.
 
 Structure
 =========

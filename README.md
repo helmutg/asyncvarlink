@@ -19,11 +19,22 @@ Client usage
 The `VarlinkServiceInterface` class represents the `org.varlink.service`
 introspection interface. We can use it to introspect `systemd-hostnamed`.
 
-    _, p = await connect_unix_varlink(
-        loop, VarlinkClientProtocol, "/run/systemd/io.systemd.Hostname"
+    import asyncio
+    from asyncvarlink import (
+        VarlinkClientProtocol, connect_unix_varlink, VarlinkInterfaceProxy
     )
-    i = VarlinkInterfaceProxy(p, VarlinkServiceInterface)
-    print(await ip.GetInfo())
+    from asyncvarlink.serviceinterface import VarlinkServiceInterface
+
+    async def main() -> None:
+        loop = asyncio.get_running_loop()
+        t, p = await connect_unix_varlink(
+            loop, VarlinkClientProtocol, "/run/systemd/io.systemd.Hostname"
+        )
+        i = VarlinkInterfaceProxy(p, VarlinkServiceInterface)
+        print(await i.GetInfo())
+        t.close()
+
+    asyncio.run(main())
 
 Server usage
 ============

@@ -42,7 +42,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                 sock1, b'{"method":"com.example.demo.Answer"}\0'
             )
             data = await loop.sock_recv(sock1, 1024)
-            self.assertEqual(data, b'{"parameters": {"result": 42}}\0')
+            self.assertEqual(data, b'{"parameters":{"result":42}}\0')
         finally:
             if transport:
                 transport.close()

@@ -183,7 +183,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0)
             protocol.send_message({"hello": "world"}, [])
             self.assertEqual(
-                b'{"hello": "world"}\0', await loop.sock_recv(sock2, 1024)
+                b'{"hello":"world"}\0', await loop.sock_recv(sock2, 1024)
             )
 
 

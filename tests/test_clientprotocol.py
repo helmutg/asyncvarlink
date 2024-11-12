@@ -34,11 +34,11 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             data = await loop.sock_recv(sock1, 1024)
             self.assertEqual(
                 data,
-                b'{"method": "com.example.demo.Method", "parameters": {"argument": "spam"}}\0',
+                b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0',
             )
             self.assertFalse(fut.done())
             await loop.sock_sendall(
-                sock1, b'{"parameters": {"result": "egg"}}\0'
+                sock1, b'{"parameters":{"result":"egg"}}\0'
             )
             self.assertEqual(await fut, {"result": "egg"})
         finally:

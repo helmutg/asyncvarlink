@@ -314,6 +314,9 @@ class VarlinkTransport(asyncio.BaseTransport):
         return self._closing
 
 
+_JSONEncoder = json.JSONEncoder(separators=(",", ":"))
+
+
 class VarlinkProtocol(asyncio.BaseProtocol):
     """An asyncio protocol that provides message_received() rather than
     data_received() to accommodate passed file descriptors.
@@ -441,7 +444,7 @@ class VarlinkProtocol(asyncio.BaseProtocol):
         """
         assert self._transport is not None
         fut = self._transport.send_message(
-            json.dumps(obj).encode("utf8") + b"\0", fds
+            _JSONEncoder.encode(obj).encode("utf8") + b"\0", fds
         )
         if fds is not None and autoclose:
 

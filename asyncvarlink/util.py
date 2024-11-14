@@ -51,7 +51,7 @@ def completing_future(
 
 async def connect_unix_varlink(
     loop: asyncio.AbstractEventLoop,
-    protocol_factory: type[VarlinkProtocol],
+    protocol_factory: typing.Callable[[], VarlinkProtocol],
     path: os.PathLike[str] | str,
 ) -> tuple[VarlinkTransport, VarlinkProtocol]:
     """Connect to the unix domain socket at given path and return a varlink

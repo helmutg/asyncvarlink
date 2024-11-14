@@ -57,9 +57,10 @@ async def connect_unix_varlink(
     """Connect to the unix domain socket at given path and return a varlink
     connection.
     """
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+    sock = socket.socket(
+        socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK
+    )
     try:
-        sock.setblocking(False)
         await loop.sock_connect(sock, os.fspath(path))
     except:
         sock.close()

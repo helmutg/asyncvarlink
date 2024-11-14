@@ -136,7 +136,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
 async def create_unix_server(
     loop: asyncio.AbstractEventLoop,
     protocol_factory: typing.Callable[[], VarlinkProtocol],
-    path: os.PathLike[str] | None = None,
+    path: os.PathLike[str] | str | None = None,
     *,
     sock: socket.socket | None = None,
     start_serving: bool = True,

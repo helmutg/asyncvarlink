@@ -43,6 +43,11 @@ Here is an example for defining an interface. If it is to be used by a server,
 the methods need to be implemented of course, but on the client side, typed
 stubs will do.
 
+    import asyncio
+    import enum
+    import typing
+    from asyncvarlink import VarlinkInterface, varlinkmethod
+
     class Direction(enum.Enum):
         left = "left"
         right = "right"
@@ -61,6 +66,13 @@ stubs will do.
             await asyncio.sleep(delay)
 
 Setting up a service is now a matter of plugging things together.
+
+    from asyncvarlink import (
+        VarlinkInterfaceRegistry,
+        VarlinkInterfaceServerProtocol,
+        VarlinkTransport,
+    )
+    from asyncvarlink.serviceinterface import VarlinkServiceInterface
 
     registry = VarlinkInterfaceRegistry()
     registry.register_interface(

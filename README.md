@@ -26,9 +26,8 @@ introspection interface. We can use it to introspect `systemd-hostnamed`.
     from asyncvarlink.serviceinterface import VarlinkServiceInterface
 
     async def main() -> None:
-        loop = asyncio.get_running_loop()
         t, p = await connect_unix_varlink(
-            loop, VarlinkClientProtocol, "/run/systemd/io.systemd.Hostname"
+            VarlinkClientProtocol, "/run/systemd/io.systemd.Hostname"
         )
         i = VarlinkInterfaceProxy(p, VarlinkServiceInterface)
         print(await i.GetInfo())
@@ -86,7 +85,7 @@ Setting up a service is now a matter of plugging things together.
     )
     registry.register_interface(DemoInterface())
     protocol = VarlinkInterfaceServerProtocol(registry)
-    VarlinkTransport(loop, 0, 1, protocol)  # serve on stdin/stdout
+    VarlinkTransport(0, 1, protocol)  # serve on stdin/stdout
 
 When communicating via stdio, `varlinkctl` from `systemd` may be used to
 interact with a service. Registering a `VarlinkServiceInterface` implementing

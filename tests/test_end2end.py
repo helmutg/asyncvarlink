@@ -31,20 +31,18 @@ class DummyInterface(VarlinkInterface, name="com.example.Dummy"):
 
 class End2EndTests(unittest.IsolatedAsyncioTestCase):
     async def test_end2end(self) -> None:
-        loop = asyncio.get_running_loop()
         registry = VarlinkInterfaceRegistry()
         interface = DummyInterface()
         registry.register_interface(interface)
         with tempfile.TemporaryDirectory() as tdir:
             sockpath = tdir + "/sock"
             async with await create_unix_server(
-                loop,
                 functools.partial(VarlinkInterfaceServerProtocol, registry),
                 sockpath,
             ) as server:
                 with contextlib.closing(server):
                     transport, protocol = await connect_unix_varlink(
-                        loop, VarlinkClientProtocol, sockpath
+                        VarlinkClientProtocol, sockpath
                     )
                     assert isinstance(protocol, VarlinkClientProtocol)
                     with contextlib.closing(transport):

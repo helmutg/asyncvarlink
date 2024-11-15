@@ -51,13 +51,16 @@ def completing_future(
 
 
 async def connect_unix_varlink(
-    loop: asyncio.AbstractEventLoop,
     protocol_factory: typing.Callable[[], VarlinkProtocol],
     path: os.PathLike[str] | str,
+    *,
+    loop: asyncio.AbstractEventLoop | None = None,
 ) -> tuple[VarlinkTransport, VarlinkProtocol]:
     """Connect to the unix domain socket at given path and return a varlink
     connection.
     """
+    if loop is None:
+        loop = asyncio.get_running_loop()
     sock = socket.socket(
         socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK
     )
@@ -79,11 +82,12 @@ class VarlinkUnixServer(asyncio.AbstractServer):
 
     def __init__(
         self,
-        loop: asyncio.AbstractEventLoop,
         sock: socket.socket,
         protocol_factory: typing.Callable[[], VarlinkProtocol],
+        *,
+        loop: asyncio.AbstractEventLoop | None = None,
     ):
-        self._loop = loop
+        self._loop = asyncio.get_running_loop() if loop is None else loop
         self._sock = sock
         self._protocol_factory = protocol_factory
         self._serving: asyncio.Future[None] | None = None
@@ -134,10 +138,10 @@ class VarlinkUnixServer(asyncio.AbstractServer):
 
 
 async def create_unix_server(
-    loop: asyncio.AbstractEventLoop,
     protocol_factory: typing.Callable[[], VarlinkProtocol],
     path: os.PathLike[str] | str | None = None,
     *,
+    loop: asyncio.AbstractEventLoop | None = None,
     sock: socket.socket | None = None,
     start_serving: bool = True,
 ) -> VarlinkUnixServer:
@@ -170,7 +174,7 @@ async def create_unix_server(
             raise
     else:
         sock.setblocking(False)
-    server = VarlinkUnixServer(loop, sock, protocol_factory)
+    server = VarlinkUnixServer(sock, protocol_factory, loop=loop)
     if start_serving:
         await server.start_serving()
     return server

@@ -1,7 +1,6 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
 # SPDX-License-Identifier: GPL-3
 
-import asyncio
 import contextlib
 import functools
 import tempfile
@@ -34,21 +33,24 @@ class End2EndTests(unittest.IsolatedAsyncioTestCase):
         registry = VarlinkInterfaceRegistry()
         interface = DummyInterface()
         registry.register_interface(interface)
-        with tempfile.TemporaryDirectory() as tdir:
+        async with contextlib.AsyncExitStack() as stack:
+            tdir = stack.enter_context(tempfile.TemporaryDirectory())
             sockpath = tdir + "/sock"
-            async with await create_unix_server(
-                functools.partial(VarlinkInterfaceServerProtocol, registry),
-                sockpath,
-            ) as server:
-                with contextlib.closing(server):
-                    transport, protocol = await connect_unix_varlink(
-                        VarlinkClientProtocol, sockpath
-                    )
-                    assert isinstance(protocol, VarlinkClientProtocol)
-                    with contextlib.closing(transport):
-                        proxy = VarlinkInterfaceProxy(protocol, DummyInterface)
-                        self.assertEqual(
-                            await proxy.Method(argument="argument"),
-                            {"result": "returnvalue"},
-                        )
-                        self.assertEqual(interface.argument, "argument")
+            factory = functools.partial(
+                VarlinkInterfaceServerProtocol, registry
+            )
+            server = stack.enter_async_context(
+                await create_unix_server(factory, sockpath)
+            )
+            stack.callback(server.close)
+            transport, protocol = await connect_unix_varlink(
+                VarlinkClientProtocol, sockpath
+            )
+            stack.callback(transport.close)
+            assert isinstance(protocol, VarlinkClientProtocol)
+            proxy = VarlinkInterfaceProxy(protocol, DummyInterface)
+            self.assertEqual(
+                await proxy.Method(argument="argument"),
+                {"result": "returnvalue"},
+            )
+            self.assertEqual(interface.argument, "argument")

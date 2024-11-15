@@ -72,6 +72,11 @@ class TestInterface(unittest.TestCase):
                 self.geni_state = 2
                 raise LastResult("geni2")
 
+            @varlinkmethod
+            def optional(self, *, optional: int | None = None) -> None:
+                if optional is not None:
+                    raise ValueError("unexpected optional value")
+
         iface = SyncInterface()
         self.assertEqual(iface.simple(), AnnotatedResult(res("simple")))
         self.assertEqual(iface.annotated(), AnnotatedResult(res("annotated")))
@@ -117,3 +122,4 @@ class TestInterface(unittest.TestCase):
         self.assertEqual(next(it), AnnotatedResult(res("geni2")))
         self.assertEqual(iface.geni_state, 2)
         self.assertRaises(StopIteration, next, it)
+        iface.optional()

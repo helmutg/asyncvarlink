@@ -347,9 +347,7 @@ class ObjectVarlinkType(VarlinkType):
             )
         self._required_keys = required
         self._optional_keys = optional
-        typemap = required | {
-            name: OptionalVarlinkType(tobj) for name, tobj in optional.items()
-        }
+        typemap = required | optional
         # mypy cannot runtime-constructed type hints.
         self.as_type = typing.TypedDict(  # type: ignore[misc]
             "ObjectVarlinkTypedDict",

@@ -9,7 +9,6 @@ import unittest
 from asyncvarlink import (
     VarlinkClientProtocol,
     VarlinkInterface,
-    VarlinkInterfaceProxy,
     VarlinkInterfaceRegistry,
     VarlinkInterfaceServerProtocol,
     connect_unix_varlink,
@@ -48,7 +47,7 @@ class End2EndTests(unittest.IsolatedAsyncioTestCase):
             )
             stack.callback(transport.close)
             assert isinstance(protocol, VarlinkClientProtocol)
-            proxy = VarlinkInterfaceProxy(protocol, DummyInterface)
+            proxy = protocol.make_proxy(DummyInterface)
             self.assertEqual(
                 await proxy.Method(argument="argument"),
                 {"result": "returnvalue"},

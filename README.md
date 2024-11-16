@@ -20,16 +20,14 @@ The `VarlinkServiceInterface` class represents the `org.varlink.service`
 introspection interface. We can use it to introspect `systemd-hostnamed`.
 
     import asyncio
-    from asyncvarlink import (
-        VarlinkClientProtocol, connect_unix_varlink, VarlinkInterfaceProxy
-    )
+    from asyncvarlink import VarlinkClientProtocol, connect_unix_varlink
     from asyncvarlink.serviceinterface import VarlinkServiceInterface
 
     async def main() -> None:
         t, p = await connect_unix_varlink(
             VarlinkClientProtocol, "/run/systemd/io.systemd.Hostname"
         )
-        i = VarlinkInterfaceProxy(p, VarlinkServiceInterface)
+        i = p.make_proxy(VarlinkServiceInterface)
         print(await i.GetInfo())
         t.close()
 

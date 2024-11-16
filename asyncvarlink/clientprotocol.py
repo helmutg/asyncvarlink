@@ -158,6 +158,12 @@ class VarlinkClientProtocol(VarlinkProtocol):
             pending = self._pending.popleft()
         pending.request_received(obj, fds)
 
+    def make_proxy(self, interface: type[VarlinkInterface]) -> "VarlinkInterfaceProxy":
+        """Convenience function that constructs an interface proxy object for
+        the combination of protocol instance and interface class at hand.
+        """
+        return VarlinkInterfaceProxy(self, interface)
+
 
 class VarlinkInterfaceProxy:
     """Interface proxy class for a varlink client. Its only purpose is to

@@ -8,7 +8,6 @@ import unittest
 from asyncvarlink import (
     VarlinkClientProtocol,
     VarlinkInterface,
-    VarlinkInterfaceProxy,
     VarlinkTransport,
     varlinkmethod,
 )
@@ -29,7 +28,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         try:
             proto = VarlinkClientProtocol()
             transport = VarlinkTransport(loop, sock2, sock2, proto)
-            proxy = VarlinkInterfaceProxy(proto, DemoInterface)
+            proxy = proto.make_proxy(DemoInterface)
             fut = asyncio.ensure_future(proxy.Method(argument="spam"))
             data = await loop.sock_recv(sock1, 1024)
             self.assertEqual(

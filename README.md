@@ -65,11 +65,7 @@ stubs will do.
 Setting up a service is now a matter of plugging things together.
 
     import sys
-    from asyncvarlink import (
-        VarlinkInterfaceRegistry,
-        VarlinkInterfaceServerProtocol,
-        VarlinkTransport,
-    )
+    from asyncvarlink import VarlinkInterfaceRegistry, VarlinkTransport
     from asyncvarlink.serviceinterface import VarlinkServiceInterface
 
     registry = VarlinkInterfaceRegistry()
@@ -83,8 +79,11 @@ Setting up a service is now a matter of plugging things together.
         ),
     )
     registry.register_interface(DemoInterface())
-    protocol = VarlinkInterfaceServerProtocol(registry)
-    VarlinkTransport(sys.stdin.fileno(), sys.stdout.fileno(), protocol)
+    VarlinkTransport(
+        sys.stdin.fileno(),
+        sys.stdout.fileno(),
+        registry.protocol_factory(),
+    )
 
 When communicating via stdio, `varlinkctl` from `systemd` may be used to
 interact with a service. Registering a `VarlinkServiceInterface` implementing

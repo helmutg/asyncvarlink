@@ -72,6 +72,14 @@ class VarlinkInterfaceRegistry:
         """Look up a VarlinkInterface by its name. Raises KeyError."""
         return self.interfaces[interface]
 
+    def protocol_factory(self) -> VarlinkProtocol:
+        """Factory method for generating protocol instances.
+        Example:
+
+            create_unix_server(registry.protocol_factory, ...)
+        """
+        return VarlinkInterfaceServerProtocol(self)
+
 
 class VarlinkServerProtocol(VarlinkProtocol):
     """Protocol class for a varlink service. It receives calls as

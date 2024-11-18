@@ -3,10 +3,9 @@
 
 import unittest
 
-from asyncvarlink.interface import AnnotatedResult
+from asyncvarlink import AnnotatedResult, VarlinkInterfaceRegistry
 from asyncvarlink.serviceinterface import (
     InterfaceNotFound,
-    VarlinkInterfaceRegistry,
     VarlinkServiceInterface,
 )
 

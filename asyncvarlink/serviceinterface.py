@@ -5,11 +5,8 @@
 
 import typing
 
-from .interface import (
-    VarlinkInterface,
-    VarlinkInterfaceRegistry,
-    varlinkmethod,
-)
+from .interface import VarlinkInterface, varlinkmethod
+from .serverprotocol import VarlinkInterfaceRegistry
 
 # The serviceerrors module is split off to avoid circular imports, users should
 # import its exceptions from this module.

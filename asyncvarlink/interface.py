@@ -9,8 +9,6 @@ import inspect
 import typing
 
 from .conversion import ObjectVarlinkType, VarlinkType
-from .message import VarlinkMethodCall
-from .serviceerrors import ExpectedMore, InterfaceNotFound, MethodNotFound
 from .types import JSONObject, validate_interface
 
 
@@ -402,51 +400,3 @@ class VarlinkInterface:
             )
         lines.append("")
         return "\n".join(lines)
-
-
-class VarlinkInterfaceRegistry:
-    """Collection of VarlinkInterface instances."""
-
-    def __init__(self) -> None:
-        self.interfaces: dict[str, VarlinkInterface] = {}
-
-    def register_interface(self, interface: VarlinkInterface) -> None:
-        """Register an interface instance. Its name must be unique to the
-        registry.
-        """
-        if interface.name in self.interfaces:
-            raise ValueError(
-                f"an interface named {interface.name} is already registered"
-            )
-        self.interfaces[interface.name] = interface
-
-    def lookup_method(
-        self, call: VarlinkMethodCall
-    ) -> tuple[typing.Callable[..., typing.Any], VarlinkMethodSignature]:
-        """Look up a method. Return the Python callable responsible for the
-        method referenced by the call and its VarlinkMethodSignature used
-        for introspection and type conversion. This raises a number of
-        subclasses of VarlinkErrorReply.
-        """
-        try:
-            interface = self.interfaces[call.method_interface]
-        except KeyError:
-            raise InterfaceNotFound(interface=call.method_interface) from None
-        try:
-            method = getattr(interface, call.method_name)
-        except AttributeError:
-            raise MethodNotFound(method=call.method_name) from None
-        if (signature := varlinksignature(method)) is None:
-            # Reject any method that has not been marked with varlinkmethod.
-            raise MethodNotFound(method=call.method_name)
-        if signature.more and not call.more:
-            raise ExpectedMore()
-        return (method, signature)
-
-    def __iter__(self) -> typing.Iterator[VarlinkInterface]:
-        """Iterate over the registered VarlinkInterface instances."""
-        return iter(self.interfaces.values())
-
-    def __getitem__(self, interface: str) -> VarlinkInterface:
-        """Look up a VarlinkInterface by its name. Raises KeyError."""
-        return self.interfaces[interface]

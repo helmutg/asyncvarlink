@@ -25,6 +25,17 @@ class MethodNotFound(TypedVarlinkErrorReply, interface="org.varlink.service"):
         method: str
 
 
+class MethodNotImplemented(
+    TypedVarlinkErrorReply, interface="org.varlink.service"
+):
+    """The interface defines the requested method, but the service does not
+    implement it.
+    """
+
+    class Parameters:
+        method: str
+
+
 class InvalidParameter(
     TypedVarlinkErrorReply, interface="org.varlink.service"
 ):
@@ -32,6 +43,15 @@ class InvalidParameter(
 
     class Parameters:
         parameter: str
+
+
+class PermissionDenied(
+    TypedVarlinkErrorReply, interface="org.varlink.service"
+):
+    """The service refuses to service the request as it denies access."""
+
+    class Parameters:
+        pass
 
 
 class ExpectedMore(TypedVarlinkErrorReply, interface="org.varlink.service"):

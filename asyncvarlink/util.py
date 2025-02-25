@@ -9,6 +9,7 @@ import os
 import socket
 import stat
 import typing
+import weakref
 
 from .protocol import _BLOCKING_ERRNOS, VarlinkProtocol, VarlinkTransport
 from .types import FileDescriptor
@@ -91,6 +92,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
         self._sock = sock
         self._protocol_factory = protocol_factory
         self._serving: asyncio.Future[None] | None = None
+        self._transports: weakref.WeakSet[VarlinkTransport] = weakref.WeakSet()
 
     def close(self) -> None:
         if self._serving is not None:
@@ -119,12 +121,14 @@ class VarlinkUnixServer(asyncio.AbstractServer):
             self.close()
             raise
         conn.setblocking(False)
-        VarlinkTransport(
-            self._loop,
-            conn,
-            conn,
-            self._protocol_factory(),
-            {"peername": addr},
+        self._transports.add(
+            VarlinkTransport(
+                self._loop,
+                conn,
+                conn,
+                self._protocol_factory(),
+                {"peername": addr},
+            )
         )
 
     async def serve_forever(self) -> None:
@@ -135,6 +139,14 @@ class VarlinkUnixServer(asyncio.AbstractServer):
         if self._serving is None:
             return
         await self._serving
+
+    def close_clients(self) -> None:
+        for transport in self._transports.copy():
+            transport.close()
+
+    def abort_clients(self) -> None:
+        for transport in self._transports.copy():
+            transport.abort()
 
 
 async def create_unix_server(

@@ -239,6 +239,11 @@ class VarlinkTransport(asyncio.BaseTransport):
             )
         return fut
 
+    def _fail_sendqueue(self) -> None:
+        while self._sendqueue:
+            _, _, fut = self._sendqueue.popleft()
+            fut.set_exception(OSError(errno.EPIPE, "Broken pipe"))
+
     def _close_sender(self) -> None:
         if self._sendfd is None:
             return
@@ -251,9 +256,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         ):
             close_fileno(self._sendfd)
         self._sendfd = None
-        while self._sendqueue:
-            _, _, fut = self._sendqueue.popleft()
-            fut.set_exception(OSError(errno.EPIPE, "Broken pipe"))
+        self._fail_sendqueue()
 
     def _handle_write(self) -> None:
         assert self._sendfd is not None
@@ -312,6 +315,16 @@ class VarlinkTransport(asyncio.BaseTransport):
 
     def is_closing(self) -> bool:
         return self._closing
+
+    def abort(self) -> None:
+        """Close the transport immediately.
+
+        In addition to closing, queued transfers will be cancelled.
+        """
+        self.close()
+        self._fail_sendqueue()
+        # Will soon call self._connection_lost, which immediately closes both
+        # fds as the _sendqueue is now empty.
 
 
 _JSONEncoder = json.JSONEncoder(separators=(",", ":"))

@@ -77,7 +77,7 @@ _MethodResultType = (
 
 
 def _params_to_varlinkobj(
-    params: typing.Iterator[tuple[str, inspect.Parameter]]
+    params: typing.Iterator[tuple[str, inspect.Parameter]],
 ) -> ObjectVarlinkType:
     required_parameters = {}
     optional_parameters = {}
@@ -144,7 +144,7 @@ def varlinkmethod(
     """
 
     def wrap(
-        function: typing.Callable[_P, _R]
+        function: typing.Callable[_P, _R],
     ) -> typing.Callable[_P, AnnotatedResult]:
         asynchronous = inspect.iscoroutinefunction(function)
         signature = inspect.signature(function)
@@ -344,7 +344,7 @@ def varlinkmethod(
 
 
 def varlinksignature(
-    method: typing.Callable[_P, _R]
+    method: typing.Callable[_P, _R],
 ) -> VarlinkMethodSignature | None:
     """Return the signature object constructed by the varlinkmethod decorator
     if the given method has been decorated.

@@ -3,6 +3,7 @@
 
 import asyncio
 import socket
+import typing
 import unittest
 
 from asyncvarlink import (
@@ -16,6 +17,9 @@ from asyncvarlink import (
 class DemoInterface(VarlinkInterface, name="com.example.demo"):
     @varlinkmethod(return_parameter="result")
     def Method(self, argument: str) -> str: ...
+
+    @varlinkmethod(return_parameter="result")
+    def MoreMethod(self) -> typing.Iterator[str]: ...
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):
@@ -40,6 +44,26 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                 sock1, b'{"parameters":{"result":"egg"}}\0'
             )
             self.assertEqual(await fut, {"result": "egg"})
+            gen = proxy.MoreMethod()
+            fut = asyncio.ensure_future(anext(gen))
+            data = await loop.sock_recv(sock1, 1024)
+            self.assertEqual(
+                data, b'{"method":"com.example.demo.MoreMethod","more":true}\0'
+            )
+            self.assertFalse(fut.done())
+            await loop.sock_sendall(
+                sock1, b'{"continues":true,"parameters":{"result":"spam"}}\0'
+            )
+            self.assertEqual(await fut, {"result": "spam"})
+            fut = asyncio.ensure_future(anext(gen))
+            await asyncio.sleep(0)
+            self.assertFalse(fut.done())
+            await loop.sock_sendall(
+                sock1, b'{"parameters":{"result":"egg"}}\0'
+            )
+            self.assertEqual(await fut, {"result": "egg"})
+            with self.assertRaises(StopAsyncIteration):
+                await anext(gen)
         finally:
             if transport:
                 transport.close()

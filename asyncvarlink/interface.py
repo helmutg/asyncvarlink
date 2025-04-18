@@ -147,6 +147,7 @@ def varlinkmethod(
         function: typing.Callable[_P, _R],
     ) -> typing.Callable[_P, AnnotatedResult]:
         asynchronous = inspect.iscoroutinefunction(function)
+        asyncgen = inspect.isasyncgenfunction(function)
         signature = inspect.signature(function)
         param_iterator = iter(signature.parameters.items())
         if next(param_iterator)[0] != "self":
@@ -158,7 +159,7 @@ def varlinkmethod(
         ret_origin = typing.get_origin(return_type)
         if ret_origin is not None and issubclass(
             ret_origin,
-            typing.AsyncIterable if asynchronous else typing.Iterable,
+            typing.AsyncIterable if asyncgen else typing.Iterable,
         ):
             return_type = typing.get_args(return_type)[0]
             more = True
@@ -187,13 +188,13 @@ def varlinkmethod(
             )
 
         vlsig = VarlinkMethodSignature(
-            asynchronous,
+            asyncgen or asynchronous,
             more,
             _params_to_varlinkobj(param_iterator),
             return_vtype,
         )
         wrapped: typing.Callable[_P, typing.Any]
-        if more and asynchronous:
+        if more and asyncgen:
             asynciterfunction = typing.cast(
                 typing.Callable[_P, typing.AsyncIterable[_R]], function
             )

@@ -130,6 +130,11 @@ json_values = st.recursive(
 )
 
 
+class Coordinate(typing.TypedDict):
+    x: float
+    y: float
+
+
 class ConversionTests(unittest.TestCase):
     @hypothesis.given(type_annotations, st.data())
     def test_round_trip(self, ta: type, data) -> None:
@@ -152,3 +157,45 @@ class ConversionTests(unittest.TestCase):
             vt.fromjson(val)
         except ConversionError:
             pass
+
+    def test_invalid(self) -> None:
+        for ta, jvals, pvals in [
+            (bool, ["fuzzy"], ["fuzzy"]),
+            (int, [2.5], [2.5]),
+            (float, ["fuzzy", 1 << 9999], ["fuzzy"]),
+            (str, [42], [42]),
+            (list[str], [2, [2]], [2, [2]]),
+            (set[str], [2, {1: {}}], [1, {1}]),
+            (dict[str, str], [2, {"x": 1}], [1, [("x", "y")], {1: 2}]),
+            (
+                Coordinate,
+                [
+                    2,
+                    {"x": 1.0},
+                    {"x": 1, "y": "bad"},
+                    {"x": 1.0, "y": 1.0, "z": 1.0},
+                ],
+                [
+                    2,
+                    {"x": 1.0},
+                    {"x": 1, "y": "bad"},
+                    {"x": 1.0, "y": 1.0, "z": 1.0},
+                ],
+            ),
+            (TriState, [2, "well"], [2, "well"]),
+            (typing.Literal["on", "off"], [2, "maybe"], [2, "maybe"]),
+            (FileDescriptor, ["stdin", -1], ["stdin"]),
+        ]:
+            vt = VarlinkType.from_type_annotation(ta)
+            for jval in jvals:
+                oobstate = {
+                    FileDescriptorVarlinkType: FileDescriptorArray(self),
+                }
+                with self.subTest(ta=ta, jval=jval):
+                    with self.assertRaises(ConversionError):
+                        vt.fromjson(jval, oobstate=oobstate)
+            for pval in pvals:
+                with self.subTest(ta=ta, pval=pval):
+                    oobstate = {FileDescriptorVarlinkType: []}
+                    with self.assertRaises(ConversionError):
+                        vt.tojson(pval, oobstate=oobstate)

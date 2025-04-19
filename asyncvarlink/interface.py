@@ -159,7 +159,7 @@ def varlinkmethod(
         ret_origin = typing.get_origin(return_type)
         if ret_origin is not None and issubclass(
             ret_origin,
-            typing.AsyncIterable if asyncgen else typing.Iterable,
+            typing.AsyncIterator if asyncgen else typing.Iterator,
         ):
             return_type = typing.get_args(return_type)[0]
             more = True

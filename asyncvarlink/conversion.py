@@ -460,7 +460,7 @@ class LiteralVarlinkType(VarlinkType):
     def __init__(self, values: set[str]):
         self._values = values
         # mypy cannot handle dynamic literals
-        self.as_type = typing.Literal[tuple[values]]  # type: ignore[valid-type]
+        self.as_type = typing.Literal[tuple(values)]
         self.as_varlink = "(%s)" % ", ".join(values)
 
     def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> str:

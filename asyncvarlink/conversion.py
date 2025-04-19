@@ -111,6 +111,8 @@ class VarlinkType:
                         for name in tobj.__optional_keys__
                     },
                 )
+        elif origin is typing.Literal:
+            return LiteralVarlinkType(set(args))
         elif origin is typing.Union or origin is types.UnionType:
             if any(arg is types.NoneType for arg in args):
                 remaining = [alt for alt in args if alt is not types.NoneType]
@@ -420,7 +422,7 @@ class ObjectVarlinkType(VarlinkType):
 
 
 class EnumVarlinkType(VarlinkType):
-    """A varlink type representing an enum/enum.Enum."""
+    """A varlink type representing an enum represented as enum.Enum."""
 
     def __init__(self, enumtype: type[enum.Enum]) -> None:
         if not issubclass(enumtype, enum.Enum):
@@ -448,6 +450,33 @@ class EnumVarlinkType(VarlinkType):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.as_type!r})"
+
+
+class LiteralVarlinkType(VarlinkType):
+    """A varlink type representation for an enum represented as
+    typing.Literal.
+    """
+
+    def __init__(self, values: set[str]):
+        self._values = values
+        # mypy cannot handle dynamic literals
+        self.as_type = typing.Literal[tuple[values]]  # type: ignore[valid-type]
+        self.as_varlink = "(%s)" % ", ".join(values)
+
+    def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> str:
+        if not (isinstance(obj, str) and obj in self._values):
+            raise ConversionError(f"invalid literal value {obj!r}")
+        return obj
+
+    def fromjson(
+        self, obj: JSONValue, oobstate: OOBTypeState = None
+    ) -> typing.Any:
+        if not (isinstance(obj, str) and obj in self._values):
+            raise ConversionError(f"invalid literal value {obj!r}")
+        return obj
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._values!r})"
 
 
 class FileDescriptorVarlinkType(VarlinkType):

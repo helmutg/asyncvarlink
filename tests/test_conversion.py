@@ -18,6 +18,7 @@ from asyncvarlink import (
     ForeignVarlinkType,
     JSONValue,
     ListVarlinkType,
+    LiteralVarlinkType,
     ObjectVarlinkType,
     OptionalVarlinkType,
     SetVarlinkType,
@@ -58,6 +59,7 @@ def type_annotations() -> st.SearchStrategy:
         st.just(float),
         st.just(str),
         st.just(TriState),
+        st.just(typing.Literal["on", "off"]),
         st.just(Digits),
         st.just(set[str]),
         st.builds(
@@ -92,6 +94,8 @@ def representable(vt: VarlinkType) -> st.SearchStrategy:
         if vt.as_type == float:
             return st.floats(allow_nan=False)
         return st.from_type(vt.as_type)
+    if isinstance(vt, LiteralVarlinkType):
+        return st.sampled_from(sorted(vt._values))
     if isinstance(vt, FileDescriptorVarlinkType):
         return st.builds(MockedFd, st.integers(min_value=0))
     if isinstance(vt, OptionalVarlinkType):

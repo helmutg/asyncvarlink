@@ -46,6 +46,10 @@ class TestInterface(unittest.TestCase):
             def annotated_named(self) -> str:
                 return AnnotatedResult(res("annotated_named"))
 
+            @varlinkmethod(return_parameter="result")
+            def iterable(self) -> list[int]:
+                return []
+
             @varlinkmethod
             def gen(self) -> typing.Iterator[ResultWrapper]:
                 self.gen_state = 0
@@ -84,6 +88,7 @@ class TestInterface(unittest.TestCase):
         self.assertEqual(
             iface.annotated_named(), AnnotatedResult(res("annotated_named"))
         )
+        self.assertEqual(iface.iterable(), AnnotatedResult(res([])))
 
         it = iface.gen()
         self.assertEqual(iface.gen_state, -1)

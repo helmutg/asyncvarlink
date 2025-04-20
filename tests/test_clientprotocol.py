@@ -7,6 +7,7 @@ import typing
 import unittest
 
 from asyncvarlink import (
+    ConversionError,
     VarlinkClientProtocol,
     VarlinkInterface,
     VarlinkTransport,
@@ -76,3 +77,9 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await fut, {"result": "egg"})
         with self.assertRaises(StopAsyncIteration):
             await anext(gen)
+
+    async def test_invalid_argument(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(invalid_argument=True))
+        await asyncio.sleep(0)
+        self.assertTrue(fut.done())
+        self.assertRaises(ConversionError, fut.result)

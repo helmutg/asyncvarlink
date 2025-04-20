@@ -8,6 +8,7 @@ import collections
 import typing
 
 from .conversion import FileDescriptorVarlinkType
+from .error import GenericVarlinkErrorReply
 from .interface import VarlinkInterface, varlinksignature
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
@@ -217,10 +218,15 @@ class VarlinkInterfaceProxy:
                 async for reply, rfds in self._protocol.call_more(
                     VarlinkMethodCall(fqmethod, parameters, more=True), pfds
                 ):
-                    # This may raise a ConversionError.
-                    yield signature.return_type.fromjson(
-                        reply.parameters, {FileDescriptorVarlinkType: rfds}
-                    )
+                    if reply.error is None:
+                        # This may raise a ConversionError.
+                        yield signature.return_type.fromjson(
+                            reply.parameters, {FileDescriptorVarlinkType: rfds}
+                        )
+                    else:
+                        raise GenericVarlinkErrorReply(
+                            reply.error, reply.parameters
+                        )
 
             return proxy_call_more
 
@@ -235,10 +241,14 @@ class VarlinkInterfaceProxy:
                     VarlinkMethodCall(fqmethod, parameters), pfds, donefut
                 )
                 assert result is not None
-                # This may raise a ConversionError.
-                return signature.return_type.fromjson(
-                    result[0].parameters,
-                    {FileDescriptorVarlinkType: result[1]},
+                if result[0].error is None:
+                    # This may raise a ConversionError.
+                    return signature.return_type.fromjson(
+                        result[0].parameters,
+                        {FileDescriptorVarlinkType: result[1]},
+                    )
+                raise GenericVarlinkErrorReply(
+                    result[0].error, result[0].parameters
                 )
 
         return proxy_call

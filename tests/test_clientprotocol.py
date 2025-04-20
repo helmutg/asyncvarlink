@@ -9,6 +9,7 @@ import unittest
 from asyncvarlink import (
     ConversionError,
     VarlinkClientProtocol,
+    VarlinkErrorReply,
     VarlinkInterface,
     VarlinkTransport,
     varlinkmethod,
@@ -83,3 +84,21 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
         self.assertTrue(fut.done())
         self.assertRaises(ConversionError, fut.result)
+
+    async def test_permission_denied(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.expect_data(
+            b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
+        )
+        self.assertFalse(fut.done())
+        await self.send_data(
+            b'{"error":"org.varlink.service.PermissionDenied"}\0'
+        )
+        try:
+            result = await fut
+        except VarlinkErrorReply as err:
+            self.assertEqual(err.name, "org.varlink.service.PermissionDenied")
+        else:
+            self.fail(
+                f"expected a VarlinkErrorReply exception, got {result!r}"
+            )

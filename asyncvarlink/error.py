@@ -66,6 +66,11 @@ class GenericVarlinkErrorReply(VarlinkErrorReply):
     def paramstojson(self) -> JSONObject:
         return self.parameters
 
+    def __repr__(self) -> str:
+        if not self.parameters:
+            return f"{self.__class__.__name__}({self.name!r})"
+        return f"{self.__class__.__name__}({self.name!r}, {self.parameters!r})"
+
 
 @typing.dataclass_transform()
 class TypedVarlinkErrorReply(VarlinkErrorReply):

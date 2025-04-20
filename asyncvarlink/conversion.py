@@ -97,18 +97,15 @@ class VarlinkType:
                 if issubclass(tobj, enum.Enum):
                     return EnumVarlinkType(tobj)
             if typing.is_typeddict(tobj):
+                # Do not iterate __*_keys__ as their order is unstable.
                 return ObjectVarlinkType(
                     {
-                        name: cls.from_type_annotation(
-                            tobj.__annotations__[name]
+                        name: (
+                            cls.from_type_annotation(elemtype).optional()
+                            if name in tobj.__optional_keys__
+                            else cls.from_type_annotation(elemtype)
                         )
-                        for name in tobj.__required_keys__
-                    },
-                    {
-                        name: cls.from_type_annotation(
-                            tobj.__annotations__[name]
-                        )
-                        for name in tobj.__optional_keys__
+                        for name, elemtype in tobj.__annotations__.items()
                     },
                 )
         elif origin is typing.Literal:
@@ -138,6 +135,10 @@ class VarlinkType:
             if len(args) == 1 and args[0] is str:
                 return SetVarlinkType()
         return ForeignVarlinkType()
+
+    def optional(self) -> "OptionalVarlinkType":
+        """Wrap the type representation in an OptionalVarlinkType."""
+        return OptionalVarlinkType(self)
 
 
 class SimpleVarlinkType(VarlinkType):
@@ -212,6 +213,9 @@ class OptionalVarlinkType(VarlinkType):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._vtype!r})"
+
+    def optional(self) -> typing.Self:
+        return self
 
 
 class ListVarlinkType(VarlinkType):
@@ -340,24 +344,16 @@ class ObjectVarlinkType(VarlinkType):
 
     def __init__(
         self,
-        required: dict[str, VarlinkType],
-        optional: dict[str, VarlinkType],
+        typemap: dict[str, VarlinkType],
     ):
-        if badkeys := set(required).intersection(optional):
-            raise RuntimeError(
-                f"keys {badkeys} are both optional and required"
-            )
-        self._required_keys = required
-        self._optional_keys = optional
-        typemap = required | optional
+        self._typemap = typemap
         # mypy cannot runtime-constructed type hints.
         self.as_type = typing.TypedDict(  # type: ignore[misc]
             "ObjectVarlinkTypedDict",
             {name: tobj.as_type for name, tobj in typemap.items()},
         )
         self.as_varlink = "(%s)" % ", ".join(
-            f"{name}: {tobj.as_varlink}"
-            for name, tobj in sorted(typemap.items())
+            f"{name}: {tobj.as_varlink}" for name, tobj in typemap.items()
         )
 
     def tojson(
@@ -366,25 +362,20 @@ class ObjectVarlinkType(VarlinkType):
         if not isinstance(obj, dict):
             raise ConversionError.expected("dict", obj)
         result = {}
-        for key, vtype in self._required_keys.items():
+        for key, vtype in self._typemap.items():
             try:
                 value = obj[key]
             except KeyError as err:
+                if isinstance(vtype, OptionalVarlinkType):
+                    continue
                 raise ConversionError(
                     f"missing required key {key} in given dict"
                 ) from err
             with ConversionError.context(key):
                 result[key] = vtype.tojson(value, oobstate)
-        for key, value in obj.items():
-            try:
-                vtype = self._optional_keys[key]
-            except KeyError as err:
-                if key not in result:
-                    raise ConversionError(f"no type for key {key}") from err
-            else:
-                if value is not None:
-                    with ConversionError.context(key):
-                        result[key] = vtype.tojson(value, oobstate)
+        for key in obj:
+            if key not in self._typemap:
+                raise ConversionError(f"no type for key {key}")
         return result
 
     def fromjson(
@@ -393,32 +384,24 @@ class ObjectVarlinkType(VarlinkType):
         if not isinstance(obj, dict):
             raise ConversionError.expected("map", obj)
         result = {}
-        for key, vtype in self._required_keys.items():
+        for key, vtype in self._typemap.items():
             try:
                 value = obj[key]
             except KeyError as err:
+                if isinstance(vtype, OptionalVarlinkType):
+                    continue
                 raise ConversionError(
                     f"missing required key {key} in given dict"
                 ) from err
             with ConversionError.context(key):
                 result[key] = vtype.fromjson(value, oobstate)
-        for key, value in obj.items():
-            try:
-                vtype = self._optional_keys[key]
-            except KeyError as err:
-                if key not in result:
-                    raise ConversionError(f"no type for key {key}") from err
-            else:
-                if value is not None:
-                    with ConversionError.context(key):
-                        result[key] = vtype.fromjson(value, oobstate)
+        for key in obj:
+            if key not in self._typemap:
+                raise ConversionError(f"no type for key {key}")
         return result
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}({self._required_keys!r}, "
-            f"{self._optional_keys!r})"
-        )
+        return f"{self.__class__.__name__}({self._typemap!r})"
 
 
 class EnumVarlinkType(VarlinkType):

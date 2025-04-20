@@ -111,7 +111,8 @@ def representable(vt: VarlinkType) -> st.SearchStrategy:
             dict,
             **{
                 key: representable(value)
-                for key, value in vt._required_keys.items()
+                for key, value in vt._typemap.items()
+                if not isinstance(value, OptionalVarlinkType)
             },
         )
     assert isinstance(vt, ForeignVarlinkType)

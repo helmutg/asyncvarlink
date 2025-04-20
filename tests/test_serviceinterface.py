@@ -43,7 +43,7 @@ class TestServiceInterface(unittest.TestCase):
                 {
                     "description": """interface org.varlink.service
 
-method GetInfo() -> (interfaces: []string, product: string, url: string, vendor: string, version: string)
+method GetInfo() -> (vendor: string, product: string, version: string, url: string, interfaces: []string)
 method GetInterfaceDescription(interface: string) -> (description: string)
 """,
                 },

@@ -79,15 +79,18 @@ _MethodResultType = (
 def _params_to_varlinkobj(
     params: typing.Iterator[tuple[str, inspect.Parameter]],
 ) -> ObjectVarlinkType:
-    required_parameters = {}
-    optional_parameters = {}
-    for name, tobj in params:
-        vtype = VarlinkType.from_type_annotation(tobj.annotation)
-        if tobj.default is tobj.empty:
-            required_parameters[name] = vtype
-        else:
-            optional_parameters[name] = vtype
-    return ObjectVarlinkType(required_parameters, optional_parameters)
+    return ObjectVarlinkType(
+        {
+            name: (
+                VarlinkType.from_type_annotation(tobj.annotation)
+                if tobj.default is tobj.empty
+                else VarlinkType.from_type_annotation(
+                    tobj.annotation
+                ).optional()
+            )
+            for name, tobj in params
+        },
+    )
 
 
 @typing.overload
@@ -166,15 +169,13 @@ def varlinkmethod(
         return_vtype = VarlinkType.from_type_annotation(return_type)
         make_result: typing.Callable[[_R], AnnotatedResult]
         if return_parameter is not None:
-            return_vtype = ObjectVarlinkType(
-                {return_parameter: return_vtype}, {}
-            )
+            return_vtype = ObjectVarlinkType({return_parameter: return_vtype})
 
             def make_result(result: _R) -> AnnotatedResult:
                 return AnnotatedResult({return_parameter: result})
 
         elif return_type is None:
-            return_vtype = ObjectVarlinkType({}, {})
+            return_vtype = ObjectVarlinkType({})
 
             def make_result(_result: _R) -> AnnotatedResult:
                 return AnnotatedResult({})

@@ -29,6 +29,11 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
     def Error(self) -> None:
         raise DemoError()
 
+    @varlinkmethod(return_parameter="result")
+    async def AsyncAnswer(self) -> int:
+        await asyncio.sleep(0)
+        return 42
+
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
@@ -71,4 +76,10 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         await self.invoke(
             b'{"method":"com.example.demo.Error"}',
             b'{"error":"com.example.demo.DemoError"}',
+        )
+
+    async def test_async(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.AsyncAnswer"}',
+            b'{"parameters":{"result":42}}',
         )

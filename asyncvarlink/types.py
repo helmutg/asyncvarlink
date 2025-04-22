@@ -24,7 +24,7 @@ class HasFileno(typing.Protocol):
     """
 
     def fileno(self) -> int:
-        """Returns the underlying file descriptor."""
+        """Return the underlying file descriptor."""
 
 
 class FileDescriptor(int):
@@ -33,7 +33,7 @@ class FileDescriptor(int):
     """
 
     def fileno(self) -> int:
-        """Returns the underlying file descriptor, i.e. self."""
+        """Return the underlying file descriptor, i.e. self."""
         return self
 
     @classmethod

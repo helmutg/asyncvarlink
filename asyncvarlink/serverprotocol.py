@@ -129,7 +129,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
     """Serve the interfaces registered with a registry via varlink."""
 
     def __init__(self, registry: VarlinkInterfaceRegistry) -> None:
-        """Method lookup is deferred to the given registry."""
+        """Defer method lookup to the given registry."""
         super().__init__()
         self._registry = registry
 

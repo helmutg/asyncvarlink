@@ -62,6 +62,7 @@ class LastResult(Exception):
     a sequence of continued replies."""
 
     def __init__(self, value: typing.Any):
+        """Return the given value as the last reply."""
         if isinstance(value, AnnotatedResult) and value.continues:
             raise RuntimeError(
                 "An AnnotatedResult raised via LastResult cannot continue."

@@ -1,5 +1,5 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
-# SPDX-License-Identifier: GPL-3
+# SPDX-License-Identifier: GPL-2+
 
 """Helper for converting between Python objects and JSONValues."""
 

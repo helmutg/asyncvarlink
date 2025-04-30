@@ -175,4 +175,4 @@ centralized forge, sending inquiries and patches to
 License
 =======
 
-GPL-3
+GPL-2+

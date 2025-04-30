@@ -1,5 +1,5 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
-# SPDX-License-Identifier: GPL-3
+# SPDX-License-Identifier: GPL-2+
 
 """Python classes for errors of the org.varlink.service interface."""
 

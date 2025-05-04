@@ -211,7 +211,8 @@ class VarlinkTransport(asyncio.BaseTransport):
         file descriptors are provided, they will be delivered combined using
         sendmsg. Otherwise, messages may be concatenated. The returned future
         will be done when the message has been sent. The given file descriptors
-        should remain open until then.
+        should remain open until then and the responsibility for closing them
+        remains with the caller.
         """
         if self._do_write is self._do_write_fd and fds:
             raise ValueError("cannot send fds on non-socket transport")

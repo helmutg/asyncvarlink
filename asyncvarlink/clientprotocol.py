@@ -100,14 +100,15 @@ class VarlinkClientProtocol(VarlinkProtocol):
     ) -> _CallResult | None:
         """Issue a varlink call. If the call has the more attribute set, the
         call_more method must be used instead. The given fds (if any) must
-        remain available until the call method returns. If the caller expects
-        file descriptors to be returned, it must pass a replyfdsdone future.
-        The returned FileDescriptorArray (if any) will be valid until the
+        remain available until the call method returns and the responsibility
+        for closing them remains with the caller. If the caller expects file
+        descriptors to be returned, it must pass a replyfdsdone future. The
+        returned FileDescriptorArray (if any) will be valid until the
         replyfdsdone future is done.
         """
         assert not call.more
         if call.oneway:
-            await self.send_message(call.tojson(), fds)
+            await self.send_message(call.tojson(), fds, autoclose=False)
             return None
         pending = VarlinkClientProtocol._PendingReply(
             replyfdsdone is not None, replyfdsdone
@@ -115,7 +116,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
         try:
             self._pending.append(pending)
             # We may pipeline calls here.
-            await self.send_message(call.tojson(), fds)
+            await self.send_message(call.tojson(), fds, autoclose=False)
             return await pending.future
         finally:
             if replyfdsdone is None:
@@ -126,17 +127,18 @@ class VarlinkClientProtocol(VarlinkProtocol):
     ) -> typing.AsyncGenerator[_CallResult, None]:
         """Issue a varlink call expecting multiple replies. If the call does
         not set the more attribute, the call method must be used instead. The
-        given fds (if any) must remain available until the method returns.
-        Replies generally include returned a FileDescriptorArray if file
-        descriptors were received. Such an array remains valid from one
-        iteration to the next. Its lifetime can be extended using its
-        reference_until_done method.
+        given fds (if any) must remain available until the method returns and
+        the responsibility for closing them remains with the caller. Replies
+        generally include returned a FileDescriptorArray if file descriptors
+        were received. Such an array remains valid from one iteration to the
+        next. Its lifetime can be extended using its reference_until_done
+        method.
         """
         assert call.more
         pending = VarlinkClientProtocol._PendingReplies()
         self._pending.append(pending)
         # We may pipeline calls here.
-        sendfut = self.send_message(call.tojson(), fds)
+        sendfut = self.send_message(call.tojson(), fds, autoclose=False)
         try:
             while pending.replies:
                 preply = pending.replies[0]

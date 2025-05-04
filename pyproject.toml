@@ -17,6 +17,8 @@ test = ["hypothesis"]
 
 [project.urls]
 homepage = "https://github.com/helmutg/asyncvarlink"
+github = "https://github.com/helmutg/asyncvarlink"
+issues = "https://github.com/helmutg/asyncvarlink/issues"
 
 [tool.black]
 line-length = 79

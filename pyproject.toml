@@ -20,8 +20,15 @@ homepage = "https://github.com/helmutg/asyncvarlink"
 github = "https://github.com/helmutg/asyncvarlink"
 issues = "https://github.com/helmutg/asyncvarlink/issues"
 
+[build-system]
+requires = ["flit_core >=3.8"]
+build-backend = "flit_core.buildapi"
+
 [tool.black]
 line-length = 79
+
+[tool.flit.module]
+name = "asyncvarlink"
 
 [tool.mypy]
 strict = true

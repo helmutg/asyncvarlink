@@ -388,13 +388,14 @@ class VarlinkInterface:
         except ValueError as err:
             raise RuntimeError("invalid VarlinkInterface name") from err
 
-    def render_interface_description(self) -> str:
+    @classmethod
+    def render_interface_description(cls) -> str:
         """Render a varlink interface description from this interface.
         Refer to https://varlink.org/Interface-Definition.
         """
-        lines = [f"interface {self.name}", ""]
-        for name in dir(self):
-            obj = getattr(self, name)
+        lines = [f"interface {cls.name}", ""]
+        for name in dir(cls):
+            obj = getattr(cls, name)
             if (signature := varlinksignature(obj)) is None:
                 continue
             lines.append(

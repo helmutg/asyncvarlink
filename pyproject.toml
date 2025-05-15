@@ -30,6 +30,9 @@ line-length = 79
 [tool.flit.module]
 name = "asyncvarlink"
 
+[tool.flit.sdist]
+include = ["conftest.py", "docs/", "README.md", "tests/"]
+
 [tool.mypy]
 strict = true
 

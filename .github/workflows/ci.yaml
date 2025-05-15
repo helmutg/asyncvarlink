@@ -60,3 +60,21 @@ jobs:
         run: |
           pip install pytest pytest-cov .[test]
           pytest --cov=asyncvarlink --cov-fail-under=75 tests
+  sphinxdoc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install sphinx
+      - name: Build documentation
+        run: |
+          sphinx-build docs docs/build
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: sphinxdoc
+          path: docs/build/

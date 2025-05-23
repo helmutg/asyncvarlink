@@ -54,6 +54,9 @@ class VarlinkType:
     as_varlink: str
     """A varlink interface description representation of the varlink type."""
 
+    typedefs: dict[str, str] = {}
+    """Varlink type definitions used in the varlink type."""
+
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
@@ -141,6 +144,27 @@ class VarlinkType:
         return OptionalVarlinkType(self)
 
 
+def _merge_typedefs(
+    typedefs: dict[str, str], *moretypedefs: dict[str, str]
+) -> None:
+    """Update the given typedefs in-place effectively computing a union of all
+    given moretypedefs. Conflicting definitions are rejected with a
+    RuntimeError.
+    """
+    for defmap in moretypedefs:
+        for name, tdef in defmap.items():
+            try:
+                olddef = typedefs[name]
+            except KeyError:
+                typedefs[name] = tdef
+            else:
+                if olddef != tdef:
+                    raise RuntimeError(
+                        "conflicting type definitions for "
+                        f"{name}: {olddef} vs {tdef}"
+                    )
+
+
 class SimpleVarlinkType(VarlinkType):
     """A varlink type representing a base type such as int or str."""
 
@@ -196,6 +220,7 @@ class OptionalVarlinkType(VarlinkType):
         self._vtype = vtype
         self.as_type = vtype.as_type | None
         self.as_varlink = "?" + vtype.as_varlink
+        self.typedefs = vtype.typedefs
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -226,6 +251,7 @@ class ListVarlinkType(VarlinkType):
         # mypy cannot runtime-constructed type hints.
         self.as_type = list[elttype.as_type]  # type: ignore[name-defined]
         self.as_varlink = "[]" + elttype.as_varlink
+        self.typedefs = elttype.typedefs
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -263,6 +289,7 @@ class DictVarlinkType(VarlinkType):
         # mypy cannot runtime-constructed type hints.
         self.as_type = dict[str, elttype.as_type]  # type: ignore[name-defined]
         self.as_varlink = "[string]" + elttype.as_varlink
+        self.typedefs = elttype.typedefs
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -354,6 +381,10 @@ class ObjectVarlinkType(VarlinkType):
         )
         self.as_varlink = "(%s)" % ", ".join(
             f"{name}: {tobj.as_varlink}" for name, tobj in typemap.items()
+        )
+        self.typedefs = {}
+        _merge_typedefs(
+            self.typedefs, *(tobj.typedefs for tobj in typemap.values())
         )
 
     def tojson(

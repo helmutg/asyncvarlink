@@ -6,9 +6,10 @@
 import dataclasses
 import functools
 import inspect
+import itertools
 import typing
 
-from .conversion import ObjectVarlinkType, VarlinkType
+from .conversion import ObjectVarlinkType, VarlinkType, _merge_typedefs
 from .types import JSONObject, validate_interface
 
 
@@ -393,14 +394,28 @@ class VarlinkInterface:
         """Render a varlink interface description from this interface.
         Refer to https://varlink.org/Interface-Definition.
         """
-        lines = [f"interface {cls.name}", ""]
+        typedefs: dict[str, str] = {}
+        methods: dict[str, VarlinkMethodSignature] = {}
         for name in dir(cls):
             obj = getattr(cls, name)
             if (signature := varlinksignature(obj)) is None:
                 continue
-            lines.append(
-                f"method {name}{signature.parameter_type.as_varlink} -> "
-                f"{signature.return_type.as_varlink}"
+            _merge_typedefs(
+                typedefs,
+                signature.parameter_type.typedefs,
+                signature.return_type.typedefs,
             )
-        lines.append("")
-        return "\n".join(lines)
+            methods[name] = signature
+        return "\n".join(
+            itertools.chain(
+                (f"interface {cls.name}", ""),
+                (f"type {tname} {tdef}" for tname, tdef in typedefs.items()),
+                ("",) if typedefs else (),
+                (
+                    f"method {name}{signature.parameter_type.as_varlink} -> "
+                    f"{signature.return_type.as_varlink}"
+                    for name, signature in methods.items()
+                ),
+                ("",),
+            ),
+        )

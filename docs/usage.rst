@@ -91,8 +91,10 @@ It will result in the following interface definition.
 
    interface com.example.demo
 
+   type Direction (left, right)
+
    method Range(count: int) -> (value: object)
-   method Reverse(value: (left, right)) -> (direction: (left, right))
+   method Reverse(value: Direction) -> (direction: Direction)
    method Sleep(delay: float) -> ()
 
 When using ``VarlinkInterface`` subclasses with a client, they are not instantiated and their methods are never called.

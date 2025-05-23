@@ -436,13 +436,16 @@ class ObjectVarlinkType(VarlinkType):
 
 
 class EnumVarlinkType(VarlinkType):
-    """A varlink type representing an enum represented as enum.Enum."""
+    """A varlink type representing an enum as an enum.Enum."""
 
     def __init__(self, enumtype: type[enum.Enum]) -> None:
         if not issubclass(enumtype, enum.Enum):
             raise TypeError("a subclass of Enum is required")
         self.as_type = enumtype
-        self.as_varlink = "(%s)" % ", ".join(enumtype.__members__)
+        self.as_varlink = enumtype.__name__
+        self.typedefs = {
+            enumtype.__name__: "(%s)" % ", ".join(enumtype.__members__)
+        }
 
     def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> str:
         if not isinstance(obj, self.as_type):

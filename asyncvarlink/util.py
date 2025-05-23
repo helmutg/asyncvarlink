@@ -56,15 +56,17 @@ async def connect_unix_varlink(
     path: os.PathLike[str] | str,
     *,
     loop: asyncio.AbstractEventLoop | None = None,
+    inheritable: bool = False,
 ) -> tuple[VarlinkTransport, VarlinkProtocol]:
     """Connect to the unix domain socket at given path and return a varlink
     connection.
     """
     if loop is None:
         loop = asyncio.get_running_loop()
-    sock = socket.socket(
-        socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK
-    )
+    socktype = socket.SOCK_STREAM | socket.SOCK_NONBLOCK
+    if not inheritable:
+        socktype |= socket.SOCK_CLOEXEC
+    sock = socket.socket(socket.AF_UNIX, socktype)
     try:
         await loop.sock_connect(sock, os.fspath(path))
     except:
@@ -156,6 +158,7 @@ async def create_unix_server(
     loop: asyncio.AbstractEventLoop | None = None,
     sock: socket.socket | None = None,
     start_serving: bool = True,
+    inheritable: bool | None = None,
 ) -> VarlinkUnixServer:
     """In a similar spirit to asyncio.SelectorEventLoop.create_unix_server
     create a UNIX domain socket server except that the transport class being
@@ -168,9 +171,10 @@ async def create_unix_server(
         if path is None:
             raise ValueError("neither path nor sock specified")
         pathstr = os.fspath(path)
-        sock = socket.socket(
-            socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK
-        )
+        socktype = socket.SOCK_STREAM | socket.SOCK_NONBLOCK
+        if not inheritable:
+            socktype |= socket.SOCK_NONBLOCK
+        sock = socket.socket(socket.AF_UNIX, socktype)
         if not pathstr.startswith("\0"):
             try:
                 st = os.stat(pathstr)
@@ -184,6 +188,8 @@ async def create_unix_server(
         except:
             sock.close()
             raise
+    elif inheritable is not None:
+        raise ValueError("cannot specify both sock and inheritable")
     else:
         sock.setblocking(False)
     server = VarlinkUnixServer(sock, protocol_factory, loop=loop)

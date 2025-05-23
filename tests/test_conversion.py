@@ -1,6 +1,7 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
 # SPDX-License-Identifier: GPL-2+
 
+import dataclasses
 import enum
 import typing
 import unittest
@@ -10,6 +11,7 @@ import hypothesis.strategies as st
 
 from asyncvarlink import (
     ConversionError,
+    DataclassVarlinkType,
     DictVarlinkType,
     EnumVarlinkType,
     FileDescriptor,
@@ -25,6 +27,12 @@ from asyncvarlink import (
     SimpleVarlinkType,
     VarlinkType,
 )
+
+
+@dataclasses.dataclass
+class Quantity:
+    value: float
+    unit: str
 
 
 class TriState(enum.Enum):
@@ -57,6 +65,7 @@ def type_annotations() -> st.SearchStrategy:
         st.just(int),
         st.just(FileDescriptor),
         st.just(float),
+        st.just(Quantity),
         st.just(str),
         st.just(TriState),
         st.just(typing.Literal["on", "off"]),
@@ -115,6 +124,9 @@ def representable(vt: VarlinkType) -> st.SearchStrategy:
                 if not isinstance(value, OptionalVarlinkType)
             },
         )
+    if isinstance(vt, DataclassVarlinkType):
+        assert vt.as_type is Quantity
+        return st.from_type(Quantity)
     assert isinstance(vt, ForeignVarlinkType)
     return st.just(object())
 

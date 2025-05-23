@@ -4,6 +4,7 @@
 """Helper for converting between Python objects and JSONValues."""
 
 import contextlib
+import dataclasses
 import enum
 import types
 import typing
@@ -111,6 +112,10 @@ class VarlinkType:
                         for name, elemtype in tobj.__annotations__.items()
                     },
                 )
+            if dataclasses.is_dataclass(tobj):
+                # is_dataclass also returns True for instances.
+                assert isinstance(tobj, type)
+                return DataclassVarlinkType(tobj)
         elif origin is typing.Literal:
             return LiteralVarlinkType(set(args))
         elif origin is typing.Union or origin is types.UnionType:
@@ -433,6 +438,67 @@ class ObjectVarlinkType(VarlinkType):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._typemap!r})"
+
+
+class DataclassVarlinkType(VarlinkType):
+    """A varlink type representing an object as a dataclasses.dataclass.
+    Only fields with init=True will be considered."""
+
+    def __init__(self, dataclasstype: type):
+        assert dataclasses.is_dataclass(dataclasstype)
+        self.as_type = dataclasstype
+        self.as_varlink = dataclasstype.__name__
+        self._typemap = {
+            field.name: VarlinkType.from_type_annotation(field.type)
+            for field in dataclasses.fields(dataclasstype)
+            if field.init
+        }
+        self.typedefs = {
+            dataclasstype.__name__: "(%s)"
+            % ", ".join(
+                f"{name}: {vtype.as_varlink}"
+                for name, vtype in self._typemap.items()
+            ),
+        }
+        _merge_typedefs(
+            self.typedefs,
+            *(vtype.typedefs for vtype in self._typemap.values()),
+        )
+
+    def tojson(
+        self, obj: typing.Any, oobstate: OOBTypeState = None
+    ) -> JSONObject:
+        if not dataclasses.is_dataclass(obj):
+            raise ConversionError.expected("a dataclass", obj)
+        result = {}
+        for name, vtype in self._typemap.items():
+            with ConversionError.context(name):
+                result[name] = vtype.tojson(getattr(obj, name), oobstate)
+        return result
+
+    def fromjson(
+        self, obj: JSONValue, oobstate: OOBTypeState = None
+    ) -> typing.Any:
+        if not isinstance(obj, dict):
+            raise ConversionError.expected("map", obj)
+        excess_keys = set(obj.keys())
+        excess_keys.difference_update(self._typemap.keys())
+        if excess_keys:
+            raise ConversionError(
+                "unexpected dataclass fields " + ", ".join(excess_keys)
+            )
+        fields = {}
+        for name, vtype in self._typemap.items():
+            try:
+                value = obj[name]
+            except KeyError as err:
+                raise ConversionError(f"missing object key {name}") from err
+            with ConversionError.context(name):
+                fields[name] = vtype.fromjson(value, oobstate)
+        return self.as_type(**fields)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.as_type})"
 
 
 class EnumVarlinkType(VarlinkType):

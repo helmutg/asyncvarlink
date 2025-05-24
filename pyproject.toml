@@ -30,6 +30,11 @@ line-length = 79
 [tool.coverage.run]
 branch = true
 
+[tool.coverage.report]
+exclude_also = [
+    "raise NotImplementedError",
+]
+
 [tool.flit.module]
 name = "asyncvarlink"
 

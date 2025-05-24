@@ -33,6 +33,7 @@ branch = true
 [tool.coverage.report]
 exclude_also = [
     "raise NotImplementedError",
+    "if typing.TYPE_CHECKING:",
 ]
 
 [tool.flit.module]

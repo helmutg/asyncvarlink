@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-2+
 
 import asyncio
+import json
 import socket
+import typing
 import unittest
 
 from asyncvarlink import (
@@ -34,6 +36,16 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         await asyncio.sleep(0)
         return 42
 
+    @varlinkmethod(return_parameter="result")
+    def SyncMore(self) -> typing.Iterator[int]:
+        yield 1
+        yield 2
+
+    @varlinkmethod(return_parameter="result")
+    async def AsyncMore(self) -> typing.AsyncIterator[int]:
+        yield 1
+        yield 2
+
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
@@ -56,6 +68,8 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             )
             await loop.sock_sendall(sock1, request + b"\0")
             data = await loop.sock_recv(sock1, 1024)
+            if json.loads(data.split(b"\0", 1)[0]).get("continues"):
+                data += await loop.sock_recv(sock1, 1024)
             self.assertEqual(data, expected_response + b"\0")
         finally:
             if transport:
@@ -66,16 +80,32 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                 sock2.close()
             sock1.close()
 
-    async def test_smoke(self) -> None:
+    async def test_sync_single(self) -> None:
         await self.invoke(
             b'{"method":"com.example.demo.Answer"}',
             b'{"parameters":{"result":42}}',
+        )
+
+    async def test_more(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.SyncMore","more":true}',
+            b'{"continues":true,"parameters":{"result":1}}\0'
+            b'{"parameters":{"result":2}}',
+        )
+        await self.invoke(
+            b'{"method":"com.example.demo.AsyncMore","more":true}',
+            b'{"continues":true,"parameters":{"result":1}}\0'
+            b'{"parameters":{"result":2}}',
         )
 
     async def test_error(self) -> None:
         await self.invoke(
             b'{"method":"com.example.demo.Error"}',
             b'{"error":"com.example.demo.DemoError"}',
+        )
+        await self.invoke(
+            b'{"method":"com.example.demo.SyncMore"}',
+            b'{"error":"org.varlink.service.ExpectedMore"}',
         )
 
     async def test_async(self) -> None:

@@ -59,7 +59,7 @@ class Dummy:
 
 
 @st.deferred
-def type_annotations() -> st.SearchStrategy:
+def type_annotations() -> st.SearchStrategy[type]:
     return st.one_of(
         st.just(bool),
         st.just(int),
@@ -98,7 +98,7 @@ class MockedFd(FileDescriptor):
         pass
 
 
-def representable(vt: VarlinkType) -> st.SearchStrategy:
+def representable(vt: VarlinkType) -> st.SearchStrategy[typing.Any]:
     if isinstance(vt, (SimpleVarlinkType, EnumVarlinkType)):
         if vt.as_type == float:
             return st.floats(allow_nan=False)

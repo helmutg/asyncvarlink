@@ -27,6 +27,9 @@ build-backend = "flit_core.buildapi"
 [tool.black]
 line-length = 79
 
+[tool.coverage.run]
+branch = true
+
 [tool.flit.module]
 name = "asyncvarlink"
 

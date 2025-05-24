@@ -35,7 +35,7 @@ class End2EndTests(unittest.IsolatedAsyncioTestCase):
         async with contextlib.AsyncExitStack() as stack:
             tdir = stack.enter_context(tempfile.TemporaryDirectory())
             sockpath = tdir + "/sock"
-            server = stack.enter_async_context(
+            server = await stack.enter_async_context(
                 await create_unix_server(registry.protocol_factory, sockpath)
             )
             stack.callback(server.close)

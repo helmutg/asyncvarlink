@@ -126,7 +126,11 @@ def representable(vt: VarlinkType) -> st.SearchStrategy[typing.Any]:
         )
     if isinstance(vt, DataclassVarlinkType):
         assert vt.as_type is Quantity
-        return st.from_type(Quantity)
+        return st.builds(
+            Quantity,
+            value=st.floats(allow_nan=False),
+            unit=st.from_type(str),
+        )
     assert isinstance(vt, ForeignVarlinkType)
     return st.just(object())
 

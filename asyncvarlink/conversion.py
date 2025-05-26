@@ -453,16 +453,17 @@ class DataclassVarlinkType(VarlinkType):
             for field in dataclasses.fields(dataclasstype)
             if field.init
         }
-        self.typedefs = {
-            dataclasstype.__name__: "(%s)"
-            % ", ".join(
-                f"{name}: {vtype.as_varlink}"
-                for name, vtype in self._typemap.items()
-            ),
-        }
+        self.typedefs = {}
         _merge_typedefs(
             self.typedefs,
             *(vtype.typedefs for vtype in self._typemap.values()),
+            {
+                dataclasstype.__name__: "(%s)"
+                % ", ".join(
+                    f"{name}: {vtype.as_varlink}"
+                    for name, vtype in self._typemap.items()
+                ),
+            },
         )
 
     def tojson(

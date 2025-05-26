@@ -49,6 +49,9 @@ def completing_future(
     finally:
         if not done:
             future.set_result(value)
+        # The consumer of the exception typically is not interested in the
+        # actual result, but Python may log an exception unless we retrieve it.
+        future.exception()
 
 
 async def connect_unix_varlink(

@@ -42,6 +42,11 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         yield 2
 
     @varlinkmethod(return_parameter="result")
+    def SyncMoreError(self) -> typing.Iterator[int]:
+        yield 1
+        raise DemoError()
+
+    @varlinkmethod(return_parameter="result")
     async def AsyncMore(self) -> typing.AsyncIterator[int]:
         yield 1
         yield 2
@@ -106,6 +111,13 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         await self.invoke(
             b'{"method":"com.example.demo.SyncMore"}',
             b'{"error":"org.varlink.service.ExpectedMore"}',
+        )
+
+    async def test_more_error(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.SyncMoreError","more":true}',
+            b'{"continues":true,"parameters":{"result":1}}\0'
+            b'{"error":"com.example.demo.DemoError"}',
         )
 
     async def test_async(self) -> None:

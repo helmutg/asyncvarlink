@@ -188,24 +188,27 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
         signature: VarlinkMethodSignature,
         pyparams: dict[str, typing.Any],
     ) -> None:
-        continues = True
-        for result in method(**pyparams):
-            assert continues
-            assert isinstance(result, AnnotatedResult)
-            fds: list[int] = []  # modified by tojson
-            jsonparams = signature.return_type.tojson(
-                result.parameters, {FileDescriptorVarlinkType: fds}
-            )
-            await self.send_reply(
-                VarlinkMethodReply(
-                    jsonparams,
-                    continues=result.continues,
-                    extensions=result.extensions,
-                ),
-                fds,
-            )
-            continues = result.continues
-        assert not continues
+        try:
+            continues = True
+            for result in method(**pyparams):
+                assert continues
+                assert isinstance(result, AnnotatedResult)
+                fds: list[int] = []  # modified by tojson
+                jsonparams = signature.return_type.tojson(
+                    result.parameters, {FileDescriptorVarlinkType: fds}
+                )
+                await self.send_reply(
+                    VarlinkMethodReply(
+                        jsonparams,
+                        continues=result.continues,
+                        extensions=result.extensions,
+                    ),
+                    fds,
+                )
+                continues = result.continues
+            assert not continues
+        except VarlinkErrorReply as err:
+            self.send_reply(err)
 
     async def _call_async_method_single(
         self,
@@ -214,18 +217,23 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
         pyparams: dict[str, typing.Any],
         oneway: bool,
     ) -> None:
-        result = await method(**pyparams)
-        assert isinstance(result, AnnotatedResult)
-        assert not result.continues
-        if oneway:
-            return
-        fds: list[int] = []  # modified by tojson
-        jsonparams = signature.return_type.tojson(
-            result.parameters, {FileDescriptorVarlinkType: fds}
-        )
-        await self.send_reply(
-            VarlinkMethodReply(jsonparams, extensions=result.extensions), fds
-        )
+        try:
+            result = await method(**pyparams)
+            assert isinstance(result, AnnotatedResult)
+            assert not result.continues
+            if oneway:
+                return
+            fds: list[int] = []  # modified by tojson
+            jsonparams = signature.return_type.tojson(
+                result.parameters, {FileDescriptorVarlinkType: fds}
+            )
+            await self.send_reply(
+                VarlinkMethodReply(jsonparams, extensions=result.extensions),
+                fds,
+            )
+        except VarlinkErrorReply as err:
+            if not oneway:
+                self.send_reply(err)
 
     async def _call_async_method_more(
         self,
@@ -233,21 +241,24 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
         signature: VarlinkMethodSignature,
         pyparams: dict[str, typing.Any],
     ) -> None:
-        continues = True
-        async for result in method(**pyparams):
-            assert continues
-            assert isinstance(result, AnnotatedResult)
-            fds: list[int] = []  # modified by tojson
-            jsonparams = signature.return_type.tojson(
-                result.parameters, {FileDescriptorVarlinkType: fds}
-            )
-            await self.send_reply(
-                VarlinkMethodReply(
-                    jsonparams,
-                    continues=result.continues,
-                    extensions=result.extensions,
-                ),
-                fds,
-            )
-            continues = result.continues
-        assert not continues
+        try:
+            continues = True
+            async for result in method(**pyparams):
+                assert continues
+                assert isinstance(result, AnnotatedResult)
+                fds: list[int] = []  # modified by tojson
+                jsonparams = signature.return_type.tojson(
+                    result.parameters, {FileDescriptorVarlinkType: fds}
+                )
+                await self.send_reply(
+                    VarlinkMethodReply(
+                        jsonparams,
+                        continues=result.continues,
+                        extensions=result.extensions,
+                    ),
+                    fds,
+                )
+                continues = result.continues
+            assert not continues
+        except VarlinkErrorReply as err:
+            self.send_reply(err)

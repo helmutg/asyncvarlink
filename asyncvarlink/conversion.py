@@ -493,7 +493,11 @@ class DataclassVarlinkType(VarlinkType):
             try:
                 value = obj[name]
             except KeyError as err:
-                raise ConversionError(f"missing object key {name}") from err
+                if not isinstance(vtype, OptionalVarlinkType):
+                    raise ConversionError(
+                        f"missing object key {name}"
+                    ) from err
+                value = None
             with ConversionError.context(name):
                 fields[name] = vtype.fromjson(value, oobstate)
         return self.as_type(**fields)

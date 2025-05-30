@@ -4,6 +4,7 @@
 """asyncio varlink server protocol implementation"""
 
 import asyncio
+import os
 import typing
 
 from .conversion import ConversionError, FileDescriptorVarlinkType
@@ -97,7 +98,15 @@ class VarlinkServerProtocol(VarlinkProtocol):
         semantics regarding fds, please refer to the documentation of
         send_message.
         """
-        return self.send_message(reply.tojson(), fds, autoclose)
+        try:
+            json = reply.tojson()
+        except ConversionError as err:
+            json = InvalidParameter(parameter=err.location[0]).tojson()
+            if fds and autoclose:
+                for fd in fds:
+                    os.close(fd)
+            fds = []
+        return self.send_message(json, fds, autoclose)
 
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None

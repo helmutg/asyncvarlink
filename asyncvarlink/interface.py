@@ -227,6 +227,11 @@ def varlinkmethod(
                             yield exc.value
                         else:
                             yield make_result(exc.value)
+                    except:
+                        if pending is not None:
+                            pending.continues = True
+                            yield pending
+                        raise
                     else:
                         if pending is not None:
                             yield pending
@@ -281,6 +286,11 @@ def varlinkmethod(
                             yield exc.value
                         else:
                             yield make_result(exc.value)
+                    except:
+                        if pending is not None:
+                            pending.continues = True
+                            yield pending
+                        raise
                     else:
                         if pending is not None:
                             yield pending

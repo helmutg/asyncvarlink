@@ -20,6 +20,10 @@ def res(val: str) -> ResultWrapper:
     return {"result": val}
 
 
+class ExpectedError(Exception):
+    pass
+
+
 class TestInterface(unittest.TestCase):
     def test_synchronous(self) -> None:
         class SyncInterface(VarlinkInterface):
@@ -29,6 +33,7 @@ class TestInterface(unittest.TestCase):
                 self.gen_state = -1
                 self.genr_state = -1
                 self.geni_state = -1
+                self.gene_state = -1
 
             @varlinkmethod
             def simple(self) -> ResultWrapper:
@@ -49,6 +54,10 @@ class TestInterface(unittest.TestCase):
             @varlinkmethod(return_parameter="result")
             def iterable(self) -> list[int]:
                 return []
+
+            @varlinkmethod
+            def error(self) -> ResultWrapper:
+                raise ExpectedError()
 
             @varlinkmethod
             def gen(self) -> typing.Iterator[ResultWrapper]:
@@ -76,6 +85,13 @@ class TestInterface(unittest.TestCase):
                 self.geni_state = 2
                 raise LastResult("geni2")
 
+            @varlinkmethod(return_parameter="result")
+            def gen_error(self) -> typing.Iterator[str]:
+                self.gene_state = 0
+                yield "gene0"
+                self.gene_state = 1
+                raise ExpectedError()
+
             @varlinkmethod
             def optional(self, *, optional: int | None = None) -> None:
                 if optional is not None:
@@ -89,6 +105,7 @@ class TestInterface(unittest.TestCase):
             iface.annotated_named(), AnnotatedResult(res("annotated_named"))
         )
         self.assertEqual(iface.iterable(), AnnotatedResult(res([])))
+        self.assertRaises(ExpectedError, iface.error)
 
         it = iface.gen()
         self.assertEqual(iface.gen_state, -1)
@@ -127,6 +144,13 @@ class TestInterface(unittest.TestCase):
         self.assertEqual(next(it), AnnotatedResult(res("geni2")))
         self.assertEqual(iface.geni_state, 2)
         self.assertRaises(StopIteration, next, it)
+        it = iface.gen_error()
+        self.assertEqual(iface.gene_state, -1)
+        self.assertEqual(
+            next(it), AnnotatedResult(res("gene0"), continues=True)
+        )
+        self.assertEqual(iface.gene_state, 1)
+        self.assertRaises(ExpectedError, next, it)
         iface.optional()
 
 

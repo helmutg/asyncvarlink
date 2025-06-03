@@ -36,6 +36,16 @@ class FileDescriptor(int):
         """Return the underlying file descriptor, i.e. self."""
         return self
 
+    def __new__(cls, fdlike: HasFileno | int) -> typing.Self:
+        """Convert the given object with fileno method or integer into a
+        FileDescriptor object which is both an int and has a fileno method.
+        """
+        if isinstance(fdlike, cls):
+            return fdlike  # No need to copy. It's immutable.
+        if not isinstance(fdlike, int):
+            fdlike = fdlike.fileno()
+        return super(FileDescriptor, cls).__new__(cls, fdlike)
+
     @classmethod
     def upgrade(cls, fdlike: HasFileno | int) -> HasFileno:
         """Upgrade an int into a FileDescriptor or return an object that

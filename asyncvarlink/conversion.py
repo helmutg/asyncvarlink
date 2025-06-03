@@ -595,13 +595,9 @@ class FileDescriptorVarlinkType(VarlinkType):
         and the returned json value is the index into said array. A list[int]
         should be conveyed as out-of-band state.
         """
-        if not isinstance(obj, int):
-            if not hasattr(obj, "fileno"):
-                raise ConversionError.expected("int or fileno()-like", obj)
-            obj = obj.fileno()
-            assert isinstance(obj, int)
-        if not isinstance(obj, FileDescriptor):
-            obj = FileDescriptor(obj)
+        if not isinstance(obj, int) and not hasattr(obj, "fileno"):
+            raise ConversionError.expected("int or fileno()-like", obj)
+        obj = FileDescriptor(obj)
         fdlist = self._get_oob(oobstate)
         if not isinstance(fdlist, list):
             raise ConversionError(
@@ -609,7 +605,7 @@ class FileDescriptorVarlinkType(VarlinkType):
                 f"list[int], is {type(fdlist)}"
             )
         result = len(fdlist)
-        fdlist.append(FileDescriptor(obj))
+        fdlist.append(obj)
         return result
 
     def fromjson(

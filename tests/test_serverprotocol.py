@@ -125,3 +125,9 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             b'{"method":"com.example.demo.AsyncAnswer"}',
             b'{"parameters":{"result":42}}',
         )
+
+    async def test_protocol_violation(self) -> None:
+        await self.invoke(
+            b"{}",
+            b'{"error":"invalid.asyncvarlink.ProtocolViolation"}',
+        )

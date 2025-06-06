@@ -136,7 +136,9 @@ class VarlinkServerProtocol(VarlinkProtocol):
             try:
                 call = VarlinkMethodCall.fromjson(obj)
             except (TypeError, ValueError):
-                raise GenericVarlinkErrorReply("ProtocolViolation") from None
+                raise GenericVarlinkErrorReply(
+                    "invalid.asyncvarlink.ProtocolViolation"
+                ) from None
             fut = self.call_received(call, fds)
             if fut is None:
                 return None

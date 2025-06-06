@@ -397,11 +397,11 @@ class VarlinkProtocol(asyncio.BaseProtocol):
     def _process_queue(self, fut: asyncio.Future[None] | None) -> None:
         if fut is not None:
             assert fut.done()
-            try:
-                fut.result()
-            except Exception:
+            exc = fut.exception()
+            if exc is not None:
                 _logger.error(
-                    "unhandled exception in future from request_received"
+                    "unhandled exception in future from request_received",
+                    exc_info=exc,
                 )
             fut = None
         assert self._transport is not None
@@ -415,11 +415,11 @@ class VarlinkProtocol(asyncio.BaseProtocol):
             if notify is not None:
                 notify.set_result(None)
             if fut is not None and fut.done():
-                try:
-                    fut.result()
-                except Exception:
+                exc = fut.exception()
+                if exc is not None:
                     _logger.error(
-                        "unhandled exception in future from request_received"
+                        "unhandled exception in future from request_received",
+                        exc_info=exc,
                     )
                 fut = None
             if fut is None:

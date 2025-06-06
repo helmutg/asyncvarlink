@@ -119,17 +119,18 @@ class VarlinkServerProtocol(VarlinkProtocol):
         oneway: bool,
         call_fut: asyncio.Future[None],
     ) -> None:
-        try:
-            call_fut.result()
-        except VarlinkErrorReply as err:
-            if not oneway:
-                self.send_reply(err)
-        except Exception as exc:
-            self.handle_call_exception(exc, oneway)
-        finally:
-            backpressure_fut.set_result(None)
+        exc = call_fut.exception()
+        if exc is not None:
+            if isinstance(exc, VarlinkErrorReply):
+                if not oneway:
+                    self.send_reply(exc)
+            elif isinstance(exc, (SystemExit, KeyboardInterrupt)):
+                raise exc
+            else:
+                self.handle_call_exception(exc, oneway)
+        backpressure_fut.set_result(None)
 
-    def handle_call_exception(self, exc: Exception, oneway: bool) -> None:
+    def handle_call_exception(self, exc: BaseException, oneway: bool) -> None:
         """React to call_received emitting an exception not inheriting from
         VarlinkErrorReply. The caught exception is provided. The default
         implementation logs the exception and sends an error reply unless
@@ -169,7 +170,9 @@ class VarlinkServerProtocol(VarlinkProtocol):
             if not obj.get("oneway", False):
                 self.send_reply(err)
             return None
-        except Exception as exc:
+        except (SystemExit, KeyboardInterrupt):
+            raise
+        except BaseException as exc:
             self.handle_call_exception(exc, bool(obj.get("oneway", False)))
             return None
 

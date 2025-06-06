@@ -4,6 +4,8 @@
 """asyncio varlink server protocol implementation"""
 
 import asyncio
+import functools
+import logging
 import os
 import typing
 
@@ -24,6 +26,9 @@ from .serviceerrors import (
     MethodNotFound,
 )
 from .types import FileDescriptorArray, JSONObject
+
+
+_logger = logging.getLogger("asyncvarlink.serverprotocol")
 
 
 class VarlinkInterfaceRegistry:
@@ -108,6 +113,22 @@ class VarlinkServerProtocol(VarlinkProtocol):
             fds = []
         return self.send_message(json, fds, autoclose)
 
+    def _on_receiver_completes(
+        self,
+        backpressure_fut: asyncio.Future[None],
+        oneway: bool,
+        call_fut: asyncio.Future[None],
+    ) -> None:
+        try:
+            call_fut.result()
+        except VarlinkErrorReply as err:
+            if not oneway:
+                self.send_reply(err)
+        except Exception:
+            _logger.exception("unhandled exception from call_received future")
+        finally:
+            backpressure_fut.set_result(None)
+
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:
@@ -116,10 +137,22 @@ class VarlinkServerProtocol(VarlinkProtocol):
                 call = VarlinkMethodCall.fromjson(obj)
             except (TypeError, ValueError):
                 raise GenericVarlinkErrorReply("ProtocolViolation") from None
-            return self.call_received(call, fds)
+            fut = self.call_received(call, fds)
+            if fut is None:
+                return None
+            bpfut = asyncio.get_running_loop().create_future()
+            fut.add_done_callback(
+                functools.partial(
+                    self._on_receiver_completes, bpfut, call.oneway
+                ),
+            )
+            return bpfut
         except VarlinkErrorReply as err:
             if not obj.get("oneway", False):
                 self.send_reply(err)
+            return None
+        except Exception:
+            _logger.exception("unhandled exception from call_received")
             return None
 
     def call_received(
@@ -128,8 +161,10 @@ class VarlinkServerProtocol(VarlinkProtocol):
         """Handle a received varlink parsed as a call object and associated
         file descriptors. The descriptors are valid until the function returns.
         Their life time can be extended by adding a referee before returning.
-        The function should call the send_reply method as needed or raise a
-        VarlinkErrorReply to be sent by the caller.
+        If the function raises an exception or the returned future (if any)
+        completes with an exception a reply will be generated. Otherwise, the
+        function is expected to call send_reply as needed before returning None
+        or completing the returned future.
         """
         raise NotImplementedError
 

@@ -394,19 +394,35 @@ class VarlinkProtocol(asyncio.BaseProtocol):
                 processing = True
             fds = None
 
-    def _process_queue(self, _: asyncio.Future[None] | None) -> None:
+    def _process_queue(self, fut: asyncio.Future[None] | None) -> None:
+        if fut is not None:
+            assert fut.done()
+            try:
+                fut.result()
+            except Exception:
+                _logger.error(
+                    "unhandled exception in future from request_received"
+                )
+            fut = None
         assert self._transport is not None
         if not self._consumer_queue:
             self._transport.resume_receiving()
             return
         consume, notify = self._consumer_queue.popleft()
-        fut = None
         try:
             fut = consume()
         finally:
             if notify is not None:
                 notify.set_result(None)
-            if fut is None or fut.done():
+            if fut is not None and fut.done():
+                try:
+                    fut.result()
+                except Exception:
+                    _logger.error(
+                        "unhandled exception in future from request_received"
+                    )
+                fut = None
+            if fut is None:
                 # If the consumer finishes immediately, skip back pressure
                 # via pause_receiving as that typically incurs two syscalls.
                 if self._consumer_queue:

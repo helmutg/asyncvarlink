@@ -124,10 +124,26 @@ class VarlinkServerProtocol(VarlinkProtocol):
         except VarlinkErrorReply as err:
             if not oneway:
                 self.send_reply(err)
-        except Exception:
-            _logger.exception("unhandled exception from call_received future")
+        except Exception as exc:
+            self.handle_call_exception(exc, oneway)
         finally:
             backpressure_fut.set_result(None)
+
+    def handle_call_exception(self, exc: Exception, oneway: bool) -> None:
+        """React to call_received emitting an exception not inheriting from
+        VarlinkErrorReply. The caught exception is provided. The default
+        implementation logs the exception and sends an error reply unless
+        oneway is True.
+        """
+        _logger.exception(
+            "unhandled exception from call_received future", exc_info=exc
+        )
+        if not oneway:
+            self.send_reply(
+                GenericVarlinkErrorReply(
+                    "invalid.asyncvarlink.InternalServerError"
+                )
+            )
 
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None
@@ -153,8 +169,8 @@ class VarlinkServerProtocol(VarlinkProtocol):
             if not obj.get("oneway", False):
                 self.send_reply(err)
             return None
-        except Exception:
-            _logger.exception("unhandled exception from call_received")
+        except Exception as exc:
+            self.handle_call_exception(exc, bool(obj.get("oneway", False)))
             return None
 
     def call_received(

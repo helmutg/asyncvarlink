@@ -127,14 +127,19 @@ class VarlinkServerProtocol(VarlinkProtocol):
             elif isinstance(exc, (SystemExit, KeyboardInterrupt)):
                 raise exc
             else:
-                self.handle_call_exception(exc, oneway)
+                try:
+                    self.handle_call_exception(exc, oneway)
+                except VarlinkErrorReply as err:
+                    if not oneway:
+                        self.send_reply(err)
         backpressure_fut.set_result(None)
 
     def handle_call_exception(self, exc: BaseException, oneway: bool) -> None:
         """React to call_received emitting an exception not inheriting from
         VarlinkErrorReply. The caught exception is provided. The default
         implementation logs the exception and sends an error reply unless
-        oneway is True.
+        oneway is True. The function may raise a VarlinkErrorReply and have it
+        sent when needed.
         """
         _logger.exception(
             "unhandled exception from call_received future", exc_info=exc
@@ -173,7 +178,12 @@ class VarlinkServerProtocol(VarlinkProtocol):
         except (SystemExit, KeyboardInterrupt):
             raise
         except BaseException as exc:
-            self.handle_call_exception(exc, bool(obj.get("oneway", False)))
+            oneway = bool(obj.get("oneway", False))
+            try:
+                self.handle_call_exception(exc, oneway)
+            except VarlinkErrorReply as err:
+                if not oneway:
+                    self.send_reply(err)
             return None
 
     def call_received(

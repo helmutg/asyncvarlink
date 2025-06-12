@@ -170,6 +170,10 @@ class VarlinkClientProtocol(VarlinkProtocol):
         return VarlinkInterfaceProxy(self, interface)
 
 
+class _KwOnlyFunction(typing.Protocol):
+    def __call__(self, **kwargs: typing.Any) -> typing.Any: ...
+
+
 class VarlinkInterfaceProxy:
     """Interface proxy class for a varlink client. Its only purpose is to
     provide a suitable __getattr__ method such that methods declared on a
@@ -192,7 +196,7 @@ class VarlinkInterfaceProxy:
         self._protocol = protocol
         self._interface = interface
 
-    def __getattr__(self, attr: str) -> typing.Callable[..., typing.Any]:
+    def __getattr__(self, attr: str) -> _KwOnlyFunction:
         """Look up a method on the VarlinkInterface subclass and return a proxy
         method if available. Raises AttributeError if no suitable method could
         be found. The type of the proxy method is dynamic. It is generally

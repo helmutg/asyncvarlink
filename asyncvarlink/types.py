@@ -27,34 +27,47 @@ class HasFileno(typing.Protocol):
         """Return the underlying file descriptor."""
 
 
-class FileDescriptor(int):
-    """An integer that happens to represent a file descriptor meant for type
-    checking.
+class FileDescriptor:
+    """Wrap various file descriptor objects of different types in a
+    recognizable type for using in a varlink interface.
     """
+
+    def __init__(self, fd: int | HasFileno):
+        if isinstance(fd, int) and fd < 0:
+            raise ValueError("invalid file descriptor number")
+        self.fd = fd
 
     def fileno(self) -> int:
         """Return the underlying file descriptor, i.e. self."""
-        return self
+        if isinstance(self.fd, int):
+            return self.fd
+        return self.fd.fileno()
 
-    def __new__(cls, fdlike: HasFileno | int) -> typing.Self:
-        """Convert the given object with fileno method or integer into a
-        FileDescriptor object which is both an int and has a fileno method.
-        """
-        if isinstance(fdlike, cls):
-            return fdlike  # No need to copy. It's immutable.
-        if not isinstance(fdlike, int):
-            fdlike = fdlike.fileno()
-        return super(FileDescriptor, cls).__new__(cls, fdlike)
+    __int__ = fileno
 
-    @classmethod
-    def upgrade(cls, fdlike: HasFileno | int) -> HasFileno:
-        """Upgrade an int into a FileDescriptor or return an object that
-        already has a fileno method unmodified.
+    def close(self) -> None:
+        """Close the file descriptor. May only be called once. If the
+        underlying file descriptor has a close method, it is used. Otherwise,
+        os.close is used.
         """
-        if hasattr(fdlike, "fileno"):
-            return fdlike
-        assert isinstance(fdlike, int)
-        return cls(fdlike)
+        try:
+            close = getattr(self.fd, "close")
+        except AttributeError:
+            os.close(self.fileno())
+        else:
+            close()
+
+    def __eq__(self, other: typing.Any) -> bool:
+        if isinstance(other, int):
+            return self.fileno() == other
+        try:
+            filenometh = getattr(other, "fileno")
+        except AttributeError:
+            return False
+        otherfileno = filenometh()
+        if not isinstance(otherfileno, int):
+            return False
+        return self.fileno() == otherfileno
 
 
 def close_fileno(thing: HasFileno) -> None:
@@ -131,9 +144,8 @@ class FileDescriptorArray(FutureCounted):
         fds: typing.Iterable[HasFileno | int | None] | None = None,
     ):
         super().__init__(initial_referee)
-        self._fds: list[HasFileno | None] = [
-            fd if fd is None else FileDescriptor.upgrade(fd)
-            for fd in fds or ()
+        self._fds: list[FileDescriptor | None] = [
+            fd if fd is None else FileDescriptor(fd) for fd in fds or ()
         ]
 
     def __bool__(self) -> bool:
@@ -154,7 +166,7 @@ class FileDescriptorArray(FutureCounted):
             for fd1, fd2 in zip(self._fds, other._fds)
         )
 
-    def take(self, index: int) -> HasFileno:
+    def take(self, index: int) -> FileDescriptor:
         """Return and consume a file descriptor from the array. Once returned
         the caller is responsible for closing the file descriptor eventually.
         """
@@ -172,7 +184,7 @@ class FileDescriptorArray(FutureCounted):
             except IndexError:
                 pass
             else:
-                close_fileno(fd)
+                fd.close()
 
     __del__ = close
     destroy = close

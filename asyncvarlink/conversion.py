@@ -91,8 +91,6 @@ class VarlinkType:
                 if issubclass(tobj, bool):
                     return SimpleVarlinkType("bool", bool)
                 if issubclass(tobj, int):
-                    if issubclass(tobj, FileDescriptor):
-                        return FileDescriptorVarlinkType()
                     return SimpleVarlinkType("int", int)
                 if issubclass(tobj, float):
                     return SimpleVarlinkType("float", float, int)
@@ -100,6 +98,8 @@ class VarlinkType:
                     return SimpleVarlinkType("string", str)
                 if issubclass(tobj, enum.Enum):
                     return EnumVarlinkType(tobj)
+                if issubclass(tobj, FileDescriptor):
+                    return FileDescriptorVarlinkType()
             if typing.is_typeddict(tobj):
                 # Do not iterate __*_keys__ as their order is unstable.
                 return ObjectVarlinkType(
@@ -595,9 +595,14 @@ class FileDescriptorVarlinkType(VarlinkType):
         and the returned json value is the index into said array. A list[int]
         should be conveyed as out-of-band state.
         """
-        if not isinstance(obj, int) and not hasattr(obj, "fileno"):
-            raise ConversionError.expected("int or fileno()-like", obj)
-        obj = FileDescriptor(obj)
+        if not isinstance(obj, int):
+            try:
+                filenomethod = getattr(obj, "fileno")
+            except AttributeError:
+                raise ConversionError.expected(
+                    "int or fileno()-like", obj
+                ) from None
+            obj = filenomethod()
         fdlist = self._get_oob(oobstate)
         if not isinstance(fdlist, list):
             raise ConversionError(

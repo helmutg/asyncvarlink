@@ -257,7 +257,6 @@ class VarlinkTransport(asyncio.BaseTransport):
         ):
             close_fileno(self._sendfd)
         self._sendfd = None
-        self._fail_sendqueue()
 
     def _handle_write(self) -> None:
         assert self._sendfd is not None
@@ -272,6 +271,7 @@ class VarlinkTransport(asyncio.BaseTransport):
                     _logger.debug("%r: sending failed", self, exc_info=True)
                     self._close_sender()
                     fut.set_exception(err)
+                    self._fail_sendqueue()
                 return
             while sent > 0:
                 assert data

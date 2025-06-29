@@ -57,6 +57,11 @@ class VarlinkClientProtocol(VarlinkProtocol):
                 fds.reference_until_done(self.consumer_fut)
             self.future.set_result((reply, fds))
 
+        def connection_lost(self, exc: Exception) -> None:
+            if self.future.done():
+                return
+            self.future.set_exception(exc)
+
         def consumer_done(self) -> None:
             self.consumer_fut.set_result(None)
 
@@ -76,6 +81,10 @@ class VarlinkClientProtocol(VarlinkProtocol):
             if obj.get("continues", False):
                 self.replies.append(VarlinkClientProtocol._PendingReply(True))
             lastreply.request_received(obj, fds)
+
+        def connection_lost(self, exc: Exception) -> None:
+            lastreply = self.replies[-1]
+            lastreply.connection_lost(exc)
 
         def consumer_done(self) -> None:
             if self.replies:
@@ -160,6 +169,18 @@ class VarlinkClientProtocol(VarlinkProtocol):
         else:
             pending = self._pending.popleft()
         pending.request_received(obj, fds)
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        super().connection_lost(exc)
+        if exc is None:
+            exc = ConnectionResetError("Connection lost")
+        while self._pending:
+            pending = self._pending.popleft()
+            pending.connection_lost(exc)
+
+    def eof_received(self) -> None:
+        super().eof_received()
+        self.connection_lost(ConnectionResetError("remote closed connection"))
 
     def make_proxy(
         self, interface: type[VarlinkInterface]

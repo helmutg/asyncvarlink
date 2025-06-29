@@ -218,12 +218,11 @@ class VarlinkTransport(asyncio.BaseTransport):
             raise ValueError("cannot send fds on non-socket transport")
         if fds is None:
             fds = []
-        if self._closing:
+        if self._closing or self._sendfd is None:
             _logger.warning("%r: attempt to write to closed transport", self)
             fut = self._loop.create_future()
             fut.set_exception(OSError(errno.EPIPE, "Broken pipe"))
             return fut
-        assert self._sendfd is not None
         if self._sendqueue:
             lastitem = self._sendqueue[-1]
             if lastitem[1] or fds:

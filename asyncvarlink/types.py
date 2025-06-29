@@ -69,6 +69,16 @@ class FileDescriptor:
             return False
         return self.fileno() == otherfileno
 
+    def __enter__(self) -> typing.Self:
+        """Implement the context manager protocol yielding self and closing
+        the file descriptor on exit.
+        """
+        return self
+
+    def __exit__(self, *exc_info: typing.Any) -> None:
+        """Close the file descriptor on context manager exit."""
+        self.close()
+
 
 def close_fileno(thing: HasFileno) -> None:
     """Close something that has a fileno. Use .close() if available to improve

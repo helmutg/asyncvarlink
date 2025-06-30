@@ -32,13 +32,23 @@ class FileDescriptor:
     recognizable type for using in a varlink interface.
     """
 
-    def __init__(self, fd: int | HasFileno):
+    def __init__(self, fd: int | HasFileno | None):
         if isinstance(fd, int) and fd < 0:
-            raise ValueError("invalid file descriptor number")
+            fd = None
         self.fd = fd
 
+    def __bool__(self) -> bool:
+        """Indicate whether the object refers to a plausibly open file
+        descriptor.
+        """
+        return self.fd is not None
+
     def fileno(self) -> int:
-        """Return the underlying file descriptor, i.e. self."""
+        """Return the underlying file descriptor, i.e. self. Raises a
+        ValueError when closed.
+        """
+        if self.fd is None:
+            raise ValueError("closed or released file descriptor")
         if isinstance(self.fd, int):
             return self.fd
         return self.fd.fileno()
@@ -46,18 +56,28 @@ class FileDescriptor:
     __int__ = fileno
 
     def close(self) -> None:
-        """Close the file descriptor. May only be called once. If the
-        underlying file descriptor has a close method, it is used. Otherwise,
-        os.close is used.
+        """Close the file descriptor. Idempotent. If the underlying file
+        descriptor has a close method, it is used. Otherwise, os.close is used.
         """
+        if self.fd is None:
+            return
         try:
-            close = getattr(self.fd, "close")
-        except AttributeError:
-            os.close(self.fileno())
-        else:
-            close()
+            try:
+                close = getattr(self.fd, "close")
+            except AttributeError:
+                os.close(self.fileno())
+            else:
+                close()
+        finally:
+            self.fd = None
 
     def __eq__(self, other: typing.Any) -> bool:
+        if self.fd is None:
+            return (
+                other is None
+                or (isinstance(other, int) and other < 0)
+                or (isinstance(other, FileDescriptor) and other.fd is None)
+            )
         if isinstance(other, int):
             return self.fileno() == other
         try:
@@ -78,6 +98,16 @@ class FileDescriptor:
     def __exit__(self, *exc_info: typing.Any) -> None:
         """Close the file descriptor on context manager exit."""
         self.close()
+
+    def take(self) -> HasFileno | int | None:
+        """Return and disassociate the wrapped file descriptor object. If the
+        FileDescriptor object was responsible for closing it, this
+        responsibility is transferred to the caller.
+        """
+        try:
+            return self.fd
+        finally:
+            self.fd = None
 
 
 def close_fileno(thing: HasFileno) -> None:
@@ -154,37 +184,27 @@ class FileDescriptorArray(FutureCounted):
         fds: typing.Iterable[HasFileno | int | None] | None = None,
     ):
         super().__init__(initial_referee)
-        self._fds: list[FileDescriptor | None] = [
-            fd if fd is None else FileDescriptor(fd) for fd in fds or ()
-        ]
+        self._fds: list[FileDescriptor] = list(map(FileDescriptor, fds or ()))
 
     def __bool__(self) -> bool:
         """Are there any owned file descriptors in the array?"""
-        return any(fd is not None for fd in self._fds)
+        return any(self._fds)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FileDescriptorArray):
             return False
         if len(self._fds) != len(other._fds):
             return False
-        return all(
-            (
-                fd1.fileno() == fd2.fileno()
-                if fd1 is not None and fd2 is not None
-                else fd1 is fd2
-            )
-            for fd1, fd2 in zip(self._fds, other._fds)
-        )
+        return all(fd1 == fd2 for fd1, fd2 in zip(self._fds, other._fds))
 
     def take(self, index: int) -> FileDescriptor:
         """Return and consume a file descriptor from the array. Once returned
         the caller is responsible for closing the file descriptor eventually.
         """
-        fd = self._fds[index]
+        fd = self._fds[index].take()
         if fd is None:
             raise IndexError("index points at released entry")
-        self._fds[index] = None
-        return fd
+        return FileDescriptor(fd)
 
     def close(self) -> None:
         """Close all owned file descriptors. Idempotent."""

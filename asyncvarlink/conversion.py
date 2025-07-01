@@ -58,6 +58,11 @@ class VarlinkType:
     typedefs: dict[str, str] = {}
     """Varlink type definitions used in the varlink type."""
 
+    contains_fds: bool
+    """Indicate whether fds requiring lifetime management are contained
+    somewhere inside this type.
+    """
+
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
@@ -173,6 +178,8 @@ def _merge_typedefs(
 class SimpleVarlinkType(VarlinkType):
     """A varlink type representing a base type such as int or str."""
 
+    contains_fds = False
+
     def __init__(self, varlinktype: str, pythontype: type, *convertible: type):
         self.as_type = pythontype
         self.as_varlink = varlinktype
@@ -226,6 +233,7 @@ class OptionalVarlinkType(VarlinkType):
         self.as_type = vtype.as_type | None
         self.as_varlink = "?" + vtype.as_varlink
         self.typedefs = vtype.typedefs
+        self.contains_fds = vtype.contains_fds
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -257,6 +265,7 @@ class ListVarlinkType(VarlinkType):
         self.as_type = list[elttype.as_type]  # type: ignore[name-defined]
         self.as_varlink = "[]" + elttype.as_varlink
         self.typedefs = elttype.typedefs
+        self.contains_fds = elttype.contains_fds
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -295,6 +304,7 @@ class DictVarlinkType(VarlinkType):
         self.as_type = dict[str, elttype.as_type]  # type: ignore[name-defined]
         self.as_varlink = "[string]" + elttype.as_varlink
         self.typedefs = elttype.typedefs
+        self.contains_fds = elttype.contains_fds
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -333,6 +343,7 @@ class SetVarlinkType(VarlinkType):
 
     as_type = set[str]
     as_varlink = "[string]()"
+    contains_fds = False
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -391,6 +402,7 @@ class ObjectVarlinkType(VarlinkType):
         _merge_typedefs(
             self.typedefs, *(tobj.typedefs for tobj in typemap.values())
         )
+        self.contains_fds = any(tobj.contains_fds for tobj in typemap.values())
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -465,6 +477,9 @@ class DataclassVarlinkType(VarlinkType):
                 ),
             },
         )
+        self.contains_fds = any(
+            tobj.contains_fds for tobj in self._typemap.values()
+        )
 
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
@@ -509,6 +524,8 @@ class DataclassVarlinkType(VarlinkType):
 class EnumVarlinkType(VarlinkType):
     """A varlink type representing an enum as an enum.Enum."""
 
+    contains_fds = False
+
     def __init__(self, enumtype: type[enum.Enum]) -> None:
         if not issubclass(enumtype, enum.Enum):
             raise TypeError("a subclass of Enum is required")
@@ -545,6 +562,8 @@ class LiteralVarlinkType(VarlinkType):
     typing.Literal.
     """
 
+    contains_fds = False
+
     def __init__(self, values: tuple[str, ...]):
         self._values = values
         # mypy cannot handle dynamic literals
@@ -575,6 +594,7 @@ class FileDescriptorVarlinkType(VarlinkType):
 
     as_type = FileDescriptor
     as_varlink = "int"
+    contains_fds = True
 
     @classmethod
     def _get_oob(cls, oobstate: OOBTypeState) -> typing.Any:
@@ -651,6 +671,7 @@ class ForeignVarlinkType(VarlinkType):
     """
 
     as_type = typing.Any
+    contains_fds = False
 
     def __init__(self, varlink: str = "object"):
         self.as_varlink = varlink

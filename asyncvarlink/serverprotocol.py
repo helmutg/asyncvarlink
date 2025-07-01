@@ -220,22 +220,27 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
             raise InvalidParameter(parameter=err.location[0]) from err
         if not signature.asynchronous:
             if signature.more:
-                return asyncio.ensure_future(
+                fut = asyncio.ensure_future(
                     self._call_sync_method_more(method, signature, pyparams)
                 )
-            self._call_sync_method_single(
-                method, signature, pyparams, call.oneway
-            )
-            return None
-        if signature.more:
-            return asyncio.ensure_future(
+            else:
+                self._call_sync_method_single(
+                    method, signature, pyparams, call.oneway
+                )
+                return None
+        elif signature.more:
+            fut = asyncio.ensure_future(
                 self._call_async_method_more(method, signature, pyparams)
             )
-        return asyncio.ensure_future(
-            self._call_async_method_single(
-                method, signature, pyparams, call.oneway
-            ),
-        )
+        else:
+            fut = asyncio.ensure_future(
+                self._call_async_method_single(
+                    method, signature, pyparams, call.oneway
+                ),
+            )
+        if fds is not None:
+            fds.reference_until_done(fut)
+        return fut
 
     def _call_sync_method_single(
         self,

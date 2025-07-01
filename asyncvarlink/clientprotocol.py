@@ -5,6 +5,7 @@
 
 import asyncio
 import collections
+import contextlib
 import typing
 
 from .conversion import FileDescriptorVarlinkType
@@ -195,6 +196,22 @@ class _KwOnlyFunction(typing.Protocol):
     def __call__(self, **kwargs: typing.Any) -> typing.Any: ...
 
 
+class _ResourceManager:
+    """A context manager that yields a given result on entry and calls a given
+    cleanup function on exit.
+    """
+
+    def __init__(self, result: typing.Any, close: typing.Callable[[], None]):
+        self._result = result
+        self._close = close
+
+    def __enter__(self) -> typing.Any:
+        return self._result
+
+    def __exit__(self, *exc: typing.Any) -> None:
+        self._close()
+
+
 class VarlinkInterfaceProxy:
     """Interface proxy class for a varlink client. Its only purpose is to
     provide a suitable __getattr__ method such that methods declared on a
@@ -223,6 +240,8 @@ class VarlinkInterfaceProxy:
         be found. The type of the proxy method is dynamic. It is generally
         asynchronous and must be called within an asyncio event loop. It may or
         may not return a generator. All arguments must be keyword arguments.
+        If the return type contains file descriptors, the result is
+        additionally wrapped in a synchronous context manager.
         """
         try:
             fqmethod = f"{self._interface.name}.{attr}"
@@ -247,9 +266,20 @@ class VarlinkInterfaceProxy:
                 ):
                     if reply.error is None:
                         # This may raise a ConversionError.
-                        yield signature.return_type.fromjson(
+                        ret = signature.return_type.fromjson(
                             reply.parameters, {FileDescriptorVarlinkType: rfds}
                         )
+                        if signature.return_type.contains_fds:
+                            if rfds is None:
+                                yield contextlib.nullcontext(ret)
+                            else:
+                                sentinel = object()
+                                rfds.reference(sentinel)
+                                yield _ResourceManager(
+                                    ret, lambda: rfds.release(sentinel)
+                                )
+                        else:
+                            yield ret
                     else:
                         raise GenericVarlinkErrorReply(
                             reply.error, reply.parameters
@@ -268,14 +298,19 @@ class VarlinkInterfaceProxy:
                     VarlinkMethodCall(fqmethod, parameters), pfds, donefut
                 )
                 assert result is not None
-                if result[0].error is None:
+                reply, fda = result
+                if reply.error is None:
                     # This may raise a ConversionError.
-                    return signature.return_type.fromjson(
-                        result[0].parameters,
-                        {FileDescriptorVarlinkType: result[1]},
+                    ret = signature.return_type.fromjson(
+                        reply.parameters, {FileDescriptorVarlinkType: fda}
                     )
-                raise GenericVarlinkErrorReply(
-                    result[0].error, result[0].parameters
-                )
+                    if not signature.return_type.contains_fds:
+                        return ret
+                    if fda is None:
+                        return contextlib.nullcontext(ret)
+                    sentinel = object()
+                    fda.reference(sentinel)
+                    return _ResourceManager(ret, lambda: fda.release(sentinel))
+                raise GenericVarlinkErrorReply(reply.error, reply.parameters)
 
         return proxy_call

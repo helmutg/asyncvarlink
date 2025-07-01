@@ -23,7 +23,9 @@ An interface definition in the specified syntax can then be derived (e.g. for us
 To craft your own interface, inherit from ``VarlinkInterface`` and define an interface name.
 Then use the ``@varlinkmethod`` decorator for all varlink exposed methods, which must be fully type annotated.
 This decorator derives a varlink-specific type representation from the Python type annotations.
+File descriptors passed to a varlink method implementation remain valid until the method returns.
 If an interface is only meant for use with clients, there is no need for implementing its methods.
+On the client side, methods whose return type contains a ``FileDescriptor`` have their result(s) wrapped in synchronous context managers establishing the initial life time of the contained file descriptors.
 
 Instances of ``VarlinkInterface`` subclasses may be collected in a ``VarlinkInterfaceRegistry`` and then passed to a ``VarlinkInterfaceServerProtocol`` to run an IPC server with the given instances.
 On the client side, a ``VarlinkInterface`` subclass (not instance) can be glued to a ``VarlinkClientProtocol`` instance using a ``VarlinkInterfaceProxy``.
@@ -37,8 +39,10 @@ The file descriptors are supposed to remain valid until the called function retu
 The other way uses the ``FileDescriptorArray`` class.
 When this class is in use, the object actually owns the file descriptors and is responsible for closing them eventually.
 Typically, the life time of such an array is fairly limited, but it can be extended by passing an ``asyncio.Future`` to its ``reference_until_done`` method to defer closing.
-Additionally, individual file descriptors may be removed from the array using the ``take`` method.
+Additionally, individual file descriptors may be removed from the array using the ``FileDescriptor.take`` method.
 When doing so, responsibility for closing a taken file descriptor is transferred to the caller.
+If using the ``VarlinkInterfaceServerProtocol`` or ``VarlinkInterfaceProxy``, the ``FileDescriptorArray`` object is no longer exposed and the array life time is managed implicitly.
+On the server side, file descriptors remain valid until the m
 
 The type conversion between JSON and Python objects is mostly straight forward.
 Basic types such as ``bool``, ``int``, ``float`` and ``str`` map trivially.

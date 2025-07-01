@@ -245,24 +245,19 @@ class FileDescriptorArray(FutureCounted):
             return False
         return all(fd1 == fd2 for fd1, fd2 in zip(self._fds, other._fds))
 
-    def take(self, index: int) -> FileDescriptor:
-        """Return and consume a file descriptor from the array. Once returned
-        the caller is responsible for closing the file descriptor eventually.
-        """
-        fd = self._fds[index].take()
-        if fd is None:
-            raise IndexError("index points at released entry")
-        return FileDescriptor(fd, should_close=True)
+    def __len__(self) -> int:
+        return len(self._fds)
+
+    def __getitem__(self, index: int) -> FileDescriptor:
+        return self._fds[index]
+
+    def __iter__(self) -> typing.Iterator[FileDescriptor]:
+        return iter(self._fds)
 
     def close(self) -> None:
         """Close all owned file descriptors. Idempotent."""
-        for index in range(len(self._fds)):
-            try:
-                fd = self.take(index)
-            except IndexError:
-                pass
-            else:
-                fd.close()
+        for fd in self:
+            fd.close()
 
     __del__ = close
     destroy = close

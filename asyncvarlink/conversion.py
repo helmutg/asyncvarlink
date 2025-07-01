@@ -658,7 +658,7 @@ class FileDescriptorVarlinkType(VarlinkType):
                 f"FileDescriptorArray, is {type(fds)}"
             )
         try:
-            return fds.take(obj)
+            return fds[obj]
         except IndexError as err:
             raise ConversionError(
                 f"attempt to convert invalid file descriptor index {obj}"

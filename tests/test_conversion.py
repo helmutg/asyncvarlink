@@ -192,8 +192,8 @@ class ConversionTests(unittest.TestCase):
         oobfrom: dict[type, typing.Any] = {FileDescriptorVarlinkType: ownedfds}
         obj_again = vt.fromjson(val, oobfrom)
         self.assertEqual(obj, obj_again)
-        self.assertFalse(bool(ownedfds))
         close_all_fds(obj_again)
+        self.assertFalse(bool(ownedfds))
         ownedfds.release(fdlist)
 
     @hypothesis.given(type_annotations, json_values)

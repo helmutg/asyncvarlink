@@ -215,7 +215,7 @@ def get_listen_fd(name: str) -> typing.Optional[FileDescriptor]:
     if fds == 1:
         if os.environ.get("LISTEN_FDNAMES", name) != name:
             return None
-        return FileDescriptor(3)
+        return FileDescriptor(3, should_close=True)
     try:
         names = os.environ["LISTEN_FDNAMES"].split(":")
     except KeyError:
@@ -223,6 +223,6 @@ def get_listen_fd(name: str) -> typing.Optional[FileDescriptor]:
     if len(names) != fds:
         return None
     try:
-        return FileDescriptor(3 + names.index(name))
+        return FileDescriptor(3 + names.index(name), should_close=True)
     except ValueError:
         return None

@@ -67,13 +67,17 @@ class GetListenFdTests(unittest.TestCase):
         ):
             # If there is only one fd and no LISTEN_FDNAMES, expect success for
             # backwards compatibility.
-            self.assertEqual(get_listen_fd("spam"), 3)
+            fd = get_listen_fd("spam")
+            self.assertEqual(fd, 3)
+            fd.take()
         with unittest.mock.patch.dict(
             "os.environ",
             {"LISTEN_FDS": "1", "LISTEN_PID": pid, "LISTEN_FDNAMES": "spam"},
             clear=True,
         ):
-            self.assertEqual(get_listen_fd("spam"), 3)
+            fd = get_listen_fd("spam")
+            self.assertEqual(fd, 3)
+            fd.take()
         with unittest.mock.patch.dict(
             "os.environ",
             {
@@ -83,4 +87,6 @@ class GetListenFdTests(unittest.TestCase):
             },
             clear=True,
         ):
-            self.assertEqual(get_listen_fd("spam"), 4)
+            fd = get_listen_fd("spam")
+            self.assertEqual(fd, 4)
+            fd.take()

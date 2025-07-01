@@ -91,11 +91,22 @@ def type_annotations() -> st.SearchStrategy[type]:
     )
 
 
-class MockedFd(FileDescriptor):
+class MockedFd:
     """Looks like file descriptor, but isn't and swallows close."""
 
+    def __init__(self, fd: int, check_del: bool = False):
+        self.fd = fd
+        self.check_del = check_del
+
+    def fileno(self) -> int:
+        return self.fd
+
     def close(self) -> None:
-        pass
+        assert self.fd >= 0
+        self.fd = -1
+
+    def __del__(self) -> None:
+        assert self.fd < 0 or not self.check_del
 
 
 def representable(vt: VarlinkType) -> st.SearchStrategy[typing.Any]:
@@ -106,6 +117,8 @@ def representable(vt: VarlinkType) -> st.SearchStrategy[typing.Any]:
     if isinstance(vt, LiteralVarlinkType):
         return st.sampled_from(sorted(vt._values))
     if isinstance(vt, FileDescriptorVarlinkType):
+        # hypothesis appears to create more MockedFds than it returns. Do not
+        # check __del__.
         return st.builds(MockedFd, st.integers(min_value=0))
     if isinstance(vt, OptionalVarlinkType):
         return st.one_of(st.none(), representable(vt._vtype))
@@ -152,19 +165,35 @@ class Coordinate(typing.TypedDict):
     y: float
 
 
+def close_all_fds(obj: typing.Any):
+    if isinstance(obj, FileDescriptor):
+        obj.close()
+    elif isinstance(obj, list):
+        for elem in obj:
+            close_all_fds(elem)
+    elif isinstance(obj, dict):
+        for elem in obj.values():
+            close_all_fds(elem)
+
+
 class ConversionTests(unittest.TestCase):
     @hypothesis.given(type_annotations, st.data())
     def test_round_trip(self, ta: type, data) -> None:
         vt = VarlinkType.from_type_annotation(ta)
         obj = data.draw(representable(vt))
-        fdlist: list[int | None] = []
+        fdlist: list[int] = []
         oobto: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdlist}
         val = vt.tojson(obj, oobto)
-        ownedfds = FileDescriptorArray(fdlist, fdlist)
+        # We don't have to dispose obj as its MockedFds don't check __del__,
+        # but we want the array to be checked.
+        ownedfds = FileDescriptorArray(
+            fdlist, [MockedFd(fd, check_del=True) for fd in fdlist]
+        )
         oobfrom: dict[type, typing.Any] = {FileDescriptorVarlinkType: ownedfds}
         obj_again = vt.fromjson(val, oobfrom)
         self.assertEqual(obj, obj_again)
         self.assertFalse(bool(ownedfds))
+        close_all_fds(obj_again)
         ownedfds.release(fdlist)
 
     @hypothesis.given(type_annotations, json_values)

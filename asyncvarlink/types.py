@@ -109,6 +109,9 @@ class FileDescriptor:
         finally:
             self.fd = None
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.fd!r})"
+
 
 def close_fileno(thing: HasFileno) -> None:
     """Close something that has a fileno. Use .close() if available to improve

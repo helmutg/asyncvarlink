@@ -33,6 +33,10 @@ We can use it to introspect ``systemd-hostnamed`` for example.
 
    asyncio.run(main())
 
+``VarlinkServiceInterface`` is the Python implementation of the introspection interface.
+For non-introspecting use specify your own interface class here.
+A proxy object needs to be created for each interface that is being used.
+
 Defining an interface
 ---------------------
 

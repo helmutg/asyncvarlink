@@ -1,16 +1,16 @@
 Structure
 =========
 
-On the ``asyncio`` side the main classes are ``VarlinkTransport`` and ``VarlinkProtocol``.
+On the ``asyncio`` side the basic classes are ``VarlinkTransport`` and ``VarlinkBaseProtocol``.
 The use of a dedicated transport class is unusual and rooted in two aspects.
 For one thing, varlink can communicate over pipes where sending and receiving happens on different file descriptors.
 For another, this library implements file descriptor passing (over sockets) and most transport classes don't do that.
-As a result, the ``VarlinkProtocol`` hierarchy only works with ``VarlinkTransport`` transport objects.
-Where usual transports use ``write`` and usual protocols use ``data_received``, these classes use ``VarlinkTransport.send_message`` and ``VarlinkProtocol.message_received`` instead.
+As a result, the ``VarlinkBaseProtocol`` hierarchy only works with ``VarlinkTransport`` transport objects.
+Where usual transports use ``write`` and usual protocols use ``data_received``, these classes use ``VarlinkTransport.send_message`` and ``VarlinkBaseProtocol.message_received`` instead.
 As a result transport methods ``pause_reading`` and ``resume_reading`` are called ``pause_receiving`` and ``resume_receiving``.
 Other methods such as ``close`` and ``is_closing`` work as with a more common transport.
 On the protocol side, ``connection_made`` and ``eof_received`` and ``connection_lost`` have the usual protocol semantics.
-The ``VarlinkProtocol`` implements the lowest level of parsing and consumes and produces arbitrary JSON objects combined with file descriptors.
+The ``VarlinkProtocol`` class implements the lowest level of parsing and consumes and produces arbitrary JSON objects combined with file descriptors.
 
 On top of the lowest level, there are ``VarlinkClientProtocol`` and ``VarlinkServerProtocol``.
 These classes perform basic structural validation and turn the JSON objects into ``VarlinkMethodCall`` and ``VarlinkMethodReply`` objects or ``VarlinkErrorReply`` exceptions.

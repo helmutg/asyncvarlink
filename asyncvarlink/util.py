@@ -11,7 +11,7 @@ import stat
 import typing
 import weakref
 
-from .protocol import _BLOCKING_ERRNOS, VarlinkProtocol, VarlinkTransport
+from .protocol import _BLOCKING_ERRNOS, VarlinkBaseProtocol, VarlinkTransport
 from .types import FileDescriptor
 
 
@@ -55,12 +55,12 @@ def completing_future(
 
 
 async def connect_unix_varlink(
-    protocol_factory: typing.Callable[[], VarlinkProtocol],
+    protocol_factory: typing.Callable[[], VarlinkBaseProtocol],
     path: os.PathLike[str] | str,
     *,
     loop: asyncio.AbstractEventLoop | None = None,
     inheritable: bool = False,
-) -> tuple[VarlinkTransport, VarlinkProtocol]:
+) -> tuple[VarlinkTransport, VarlinkBaseProtocol]:
     """Connect to the unix domain socket at given path and return a varlink
     connection.
     """
@@ -89,7 +89,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
     def __init__(
         self,
         sock: socket.socket,
-        protocol_factory: typing.Callable[[], VarlinkProtocol],
+        protocol_factory: typing.Callable[[], VarlinkBaseProtocol],
         *,
         loop: asyncio.AbstractEventLoop | None = None,
     ):
@@ -155,7 +155,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
 
 
 async def create_unix_server(
-    protocol_factory: typing.Callable[[], VarlinkProtocol],
+    protocol_factory: typing.Callable[[], VarlinkBaseProtocol],
     path: os.PathLike[str] | str | None = None,
     *,
     loop: asyncio.AbstractEventLoop | None = None,

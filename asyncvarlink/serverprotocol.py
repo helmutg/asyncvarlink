@@ -18,7 +18,7 @@ from .interface import (
     varlinksignature,
 )
 from .message import VarlinkMethodCall, VarlinkMethodReply
-from .protocol import VarlinkProtocol
+from .protocol import VarlinkBaseProtocol, VarlinkProtocol
 from .serviceerrors import (
     ExpectedMore,
     InterfaceNotFound,
@@ -78,7 +78,7 @@ class VarlinkInterfaceRegistry:
         """Look up a VarlinkInterface by its name. Raises KeyError."""
         return self.interfaces[interface]
 
-    def protocol_factory(self) -> VarlinkProtocol:
+    def protocol_factory(self) -> VarlinkBaseProtocol:
         """Factory method for generating protocol instances.
         Example:
 

@@ -73,7 +73,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         loop: asyncio.AbstractEventLoop,
         recvfd: socket.socket | int | HasFileno,
         sendfd: socket.socket | int | HasFileno,
-        protocol: "VarlinkProtocol",
+        protocol: "VarlinkBaseProtocol",
         extra: typing.Mapping[str, typing.Any] | None = None,
     ):
         super().__init__(extra)
@@ -106,10 +106,10 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._loop.call_soon(self.resume_receiving)
 
     def set_protocol(self, protocol: asyncio.BaseProtocol) -> None:
-        assert isinstance(protocol, VarlinkProtocol)
+        assert isinstance(protocol, VarlinkBaseProtocol)
         self._protocol = protocol
 
-    def get_protocol(self) -> "VarlinkProtocol":
+    def get_protocol(self) -> "VarlinkBaseProtocol":
         return self._protocol
 
     def _close_receiver(self) -> None:
@@ -327,10 +327,33 @@ class VarlinkTransport(asyncio.BaseTransport):
         # fds as the _sendqueue is now empty.
 
 
+class VarlinkBaseProtocol(asyncio.BaseProtocol):
+    """An asyncio protocol that provides the interface expected by
+    VarlinkTransport, but does not actually implement any of the wire protocol.
+    The typical data_received used by other streaming protocols is replaced
+    with message_received.
+    """
+
+    def message_received(
+        self, data: bytes, fds: FileDescriptorArray | None
+    ) -> None:
+        """Called when the transport received new data. The data can be
+        accompanied by open file descriptors. The caller will release the fds
+        array and all contained file descriptors that have not been taken
+        (FileDescriptorArray.take) once message_received returns None. Life
+        time of fds can be extended by adding a reference prior to returning.
+        """
+
+    def eof_received(self) -> None:
+        """Callback for signalling the end of messages on the receiving side.
+        The default implementation does nothing. Same as Protocol.eof_received.
+        """
+
+
 _JSONEncoder = json.JSONEncoder(separators=(",", ":"))
 
 
-class VarlinkProtocol(asyncio.BaseProtocol):
+class VarlinkProtocol(VarlinkBaseProtocol):
     """An asyncio protocol that provides message_received() rather than
     data_received() to accommodate passed file descriptors.
     """
@@ -356,11 +379,8 @@ class VarlinkProtocol(asyncio.BaseProtocol):
     def message_received(
         self, data: bytes, fds: FileDescriptorArray | None
     ) -> None:
-        """Called when the transport received new data. The data can be
-        accompanied by open file descriptors. The caller will release the fds
-        array and all contained file descriptors that have not been taken
-        (FileDescriptorArray.take) once message_received returns None. Life
-        time of fds can be extended by adding a reference prior to returning.
+        """Handle incoming data by parsing the low-level part of the varlink
+        protocol. Pass on received data via request_received.
         """
         parts = data.split(b"\0")
         if self._recv_buffer:
@@ -433,11 +453,6 @@ class VarlinkProtocol(asyncio.BaseProtocol):
             else:
                 fut.add_done_callback(self._process_queue)
                 self._transport.pause_receiving()
-
-    def eof_received(self) -> None:
-        """Callback for signalling the end of messages on the receiving side.
-        The default implementation does nothing.
-        """
 
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None

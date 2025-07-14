@@ -11,6 +11,7 @@ from unittest.mock import Mock
 from asyncvarlink import (
     JSONObject,
     JSONValue,
+    VarlinkBaseProtocol,
     VarlinkMethodCall,
     VarlinkMethodReply,
     VarlinkProtocol,
@@ -27,7 +28,7 @@ async def wait_called(mock: Mock) -> None:
 
 class TransportTests(unittest.IsolatedAsyncioTestCase):
     async def test_receive_socket(self) -> None:
-        protocol = VarlinkProtocol()
+        protocol = VarlinkBaseProtocol()
         protocol.message_received = Mock(return_value=None)
         sock1, sock2 = socket.socketpair()
         with contextlib.closing(sock1), contextlib.closing(sock2):
@@ -39,7 +40,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         protocol.message_received.assert_called_once_with(b"hello", None)
 
     async def test_receive_socket_eof(self) -> None:
-        protocol = VarlinkProtocol()
+        protocol = VarlinkBaseProtocol()
         protocol.eof_received = Mock()
         sock1, sock2 = socket.socketpair()
         with contextlib.closing(sock1), contextlib.closing(sock2):
@@ -51,7 +52,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         protocol.eof_received.assert_called_once_with()
 
     async def test_receive_pipe(self) -> None:
-        protocol = VarlinkProtocol()
+        protocol = VarlinkBaseProtocol()
         protocol.message_received = Mock(return_value=None)
         pipe1, pipe2 = os.pipe()
         try:
@@ -66,7 +67,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         protocol.message_received.assert_called_once_with(b"hello", None)
 
     async def test_receive_pipe_eof(self) -> None:
-        protocol = VarlinkProtocol()
+        protocol = VarlinkBaseProtocol()
         protocol.eof_received = Mock()
         pipe1, pipe2 = os.pipe()
         VarlinkTransport(asyncio.get_running_loop(), pipe1, pipe2, protocol)
@@ -76,7 +77,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_send_socket(self) -> None:
         loop = asyncio.get_running_loop()
-        protocol = VarlinkProtocol()
+        protocol = VarlinkBaseProtocol()
         sock1, sock2 = socket.socketpair(
             type=socket.SOCK_STREAM | socket.SOCK_NONBLOCK
         )

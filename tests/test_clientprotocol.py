@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2+
 
 import asyncio
+import os
 import socket
 import typing
 import unittest
@@ -102,3 +103,63 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             self.fail(
                 f"expected a VarlinkErrorReply exception, got {result!r}"
             )
+
+    async def test_broken_pipe_send(self) -> None:
+        self.sock1.close()
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        with self.assertRaises(BrokenPipeError):
+            await fut
+        self.assertLess(self.sock2.fileno(), 0)
+
+    async def test_broken_pipe_receive(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.expect_data(
+            b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
+        )
+        self.assertFalse(fut.done())
+        self.sock1.close()
+        with self.assertRaises(ConnectionResetError):
+            await fut
+        self.assertLess(self.sock2.fileno(), 0)
+
+class ClientPipeTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.loop = asyncio.get_running_loop()
+        self.pipers, self.pipewc = os.pipe()
+        self.piperc, self.pipews = os.pipe()
+        os.set_blocking(self.pipers, False)
+        os.set_blocking(self.pipews, False)
+        self.proto = VarlinkClientProtocol()
+        self.transport = VarlinkTransport(
+            self.loop, self.piperc, self.pipewc, self.proto
+        )
+        self.proxy = self.proto.make_proxy(DemoInterface)
+
+    async def expect_data(self, expected: bytes) -> None:
+        fut = self.loop.create_future()
+        self.loop.add_reader(self.pipers, fut.set_result, None)
+        await fut
+        self.loop.remove_reader(self.pipers)
+        data = os.read(self.pipers, len(expected) + 1)
+        self.assertEqual(data, expected)
+
+    async def test_broken_pipe_send(self) -> None:
+        os.close(self.pipers)
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        with self.assertRaises(BrokenPipeError):
+            await fut
+        with self.assertRaisesRegex(OSError, "Bad file descriptor"):
+            os.close(self.pipewc)
+
+    async def test_broken_pipe_receive(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.expect_data(
+            b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
+        )
+        self.assertFalse(fut.done())
+        os.close(self.pipews)
+        with self.assertRaises(ConnectionResetError):
+            await fut
+        with self.assertRaisesRegex(OSError, "Bad file descriptor"):
+            os.close(self.pipewc)

@@ -498,6 +498,3 @@ class VarlinkProtocol(VarlinkBaseProtocol):
                     os.close(fd)
 
         return fut
-
-    def connection_lost(self, exc: Exception | None) -> None:
-        pass

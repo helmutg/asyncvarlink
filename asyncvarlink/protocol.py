@@ -486,7 +486,10 @@ class VarlinkProtocol(VarlinkBaseProtocol):
         closed after transmission. Otherwise, the caller is responsible for
         closing them after completion of the returned future.
         """
-        assert self._transport is not None
+        if self._transport is None:
+            fut = asyncio.get_running_loop().create_future()
+            fut.set_exception(BrokenPipeError())
+            return fut
         fut = self._transport.send_message(
             _JSONEncoder.encode(obj).encode("utf8") + b"\0", fds
         )

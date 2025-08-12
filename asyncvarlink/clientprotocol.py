@@ -178,6 +178,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
         while self._pending:
             pending = self._pending.popleft()
             pending.connection_lost(exc)
+        self.close()
 
     def eof_received(self) -> None:
         super().eof_received()

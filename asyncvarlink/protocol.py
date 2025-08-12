@@ -498,3 +498,11 @@ class VarlinkProtocol(VarlinkBaseProtocol):
                     os.close(fd)
 
         return fut
+
+    def close(self) -> None:
+        """Close the connected transport if any."""
+        if self._transport is not None:
+            try:
+                self._transport.close()
+            finally:
+                self._transport = None

@@ -122,6 +122,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             await fut
         self.assertLess(self.sock2.fileno(), 0)
 
+
 class ClientPipeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()

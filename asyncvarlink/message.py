@@ -1,5 +1,5 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
-# SPDX-License-Identifier: GPL-2+
+# SPDX-License-Identifier: LGPL-2.0-or-later
 
 """Representation of varlink method calls and replies as Python objects."""
 

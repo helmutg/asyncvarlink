@@ -5,7 +5,7 @@ description = "asyncio-compatible, type-driven varlink implementation supporting
 authors = [{name = "Helmut Grohne", email = "helmut@subdivi.de"}]
 classifiers = [
   "Development Status :: 4 - Beta",
-  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
   "Operating System :: POSIX",
   "Typing :: Typed",
   "Programming Language :: Python :: 3",

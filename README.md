@@ -102,4 +102,4 @@ centralized forge, sending inquiries and patches to
 License
 =======
 
-GPL-2+
+LGPL-2.0-or-later

@@ -221,7 +221,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         if self._closing or self._sendfd is None:
             _logger.warning("%r: attempt to write to closed transport", self)
             fut = self._loop.create_future()
-            fut.set_exception(OSError(errno.EPIPE, "Broken pipe"))
+            fut.set_exception(BrokenPipeError())
             return fut
         if self._sendqueue:
             lastitem = self._sendqueue[-1]
@@ -242,7 +242,7 @@ class VarlinkTransport(asyncio.BaseTransport):
     def _fail_sendqueue(self) -> None:
         while self._sendqueue:
             _, _, fut = self._sendqueue.popleft()
-            fut.set_exception(OSError(errno.EPIPE, "Broken pipe"))
+            fut.set_exception(BrokenPipeError())
 
     def _close_sender(self) -> None:
         if self._sendfd is None:

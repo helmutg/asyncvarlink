@@ -1,6 +1,6 @@
 [project]
 name = "asyncvarlink"
-version = "0.1.2"
+version = "0.2.0"
 description = "asyncio-compatible, type-driven varlink implementation supporting file descriptor passing"
 authors = [{name = "Helmut Grohne", email = "helmut@subdivi.de"}]
 classifiers = [

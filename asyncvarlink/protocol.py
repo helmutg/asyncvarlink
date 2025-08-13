@@ -423,9 +423,9 @@ class VarlinkProtocol(VarlinkBaseProtocol):
                     exc_info=exc,
                 )
             fut = None
-        assert self._transport is not None
         if not self._consumer_queue:
-            self._transport.resume_receiving()
+            if self._transport is not None:
+                self._transport.resume_receiving()
             return
         consume, notify = self._consumer_queue.popleft()
         try:
@@ -448,11 +448,12 @@ class VarlinkProtocol(VarlinkBaseProtocol):
                     asyncio.get_running_loop().call_soon(
                         self._process_queue, None
                     )
-                else:
+                elif self._transport is not None:
                     self._transport.resume_receiving()
             else:
                 fut.add_done_callback(self._process_queue)
-                self._transport.pause_receiving()
+                if self._transport is not None:
+                    self._transport.pause_receiving()
 
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None

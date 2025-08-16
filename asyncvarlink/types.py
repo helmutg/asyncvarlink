@@ -63,7 +63,16 @@ class FileDescriptor:
         """Indicate whether the object refers to a plausibly open file
         descriptor.
         """
-        return self.fd is not None
+        if self.fd is None:
+            return False
+        if isinstance(self.fd, int):
+            return True
+        try:
+            fd = self.fd.fileno()
+        except ValueError:
+            return False
+        return fd >= 0
+
 
     def fileno(self) -> int:
         """Return the underlying file descriptor, i.e. self. Raises a

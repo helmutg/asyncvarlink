@@ -9,6 +9,7 @@ import unittest
 
 from asyncvarlink import (
     ConversionError,
+    FileDescriptor,
     VarlinkClientProtocol,
     VarlinkErrorReply,
     VarlinkInterface,
@@ -23,6 +24,9 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
 
     @varlinkmethod(return_parameter="result")
     def MoreMethod(self) -> typing.Iterator[str]: ...
+
+    @varlinkmethod(return_parameter="fd")
+    def CreateFd(self) -> FileDescriptor: ...
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):
@@ -49,8 +53,28 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         data = await self.loop.sock_recv(self.sock1, len(expected) + 1)
         self.assertEqual(data, expected)
 
-    async def send_data(self, data: bytes) -> None:
-        await self.loop.sock_sendall(self.sock1, data)
+    def _send_data(
+        self, fut: asyncio.Future, data: bytes, fds: list[int] | None = None
+    ) -> None:
+        if fds is None:
+            fds = []
+        try:
+            sent = socket.send_fds(self.sock1, [data], fds)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            if sent >= len(data):
+                self.loop.remove_writer(self.sock1)
+                fut.set_result(None)
+            else:
+                self.loop.add_writer(self.sock1, self._send_data, fut, data)
+
+    def send_data(
+        self, data: bytes, fds: list[int] | None = None
+    ) -> asyncio.Future[None]:
+        fut = self.loop.create_future()
+        self.loop.add_writer(self.sock1, self._send_data, fut, data, fds)
+        return fut
 
     async def test_simple(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
@@ -121,6 +145,34 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ConnectionResetError):
             await fut
         self.assertLess(self.sock2.fileno(), 0)
+
+    async def test_return_fd(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.CreateFd())
+        await self.expect_data(b'{"method":"com.example.demo.CreateFd"}\0')
+        self.assertFalse(fut.done())
+        rend, wend = os.pipe()
+        self.addCleanup(os.close, rend)
+        read_fut = self.loop.create_future()
+
+        def _pipe_readable() -> None:
+            self.loop.remove_reader(rend)
+            try:
+                data = os.read(rend, 7)
+            except Exception as exc:
+                read_fut.set_exception(exc)
+            else:
+                read_fut.set_result(data)
+
+        self.loop.add_reader(rend, _pipe_readable)
+        await self.send_data(b'{"parameters":{"fd":0}}\0', [wend])
+        with await fut as ret:
+            wfd = ret["fd"].take()
+        self.addCleanup(os.close, wfd)
+        os.close(wend)  # Defer closure for assertNotEqual
+        self.assertNotEqual(wfd, wend)
+        self.assertFalse(read_fut.done())
+        os.write(wfd, b"needle")
+        self.assertEqual(await read_fut, b"needle")
 
 
 class ClientPipeTests(unittest.IsolatedAsyncioTestCase):

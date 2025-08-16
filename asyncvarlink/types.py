@@ -73,7 +73,6 @@ class FileDescriptor:
             return False
         return fd >= 0
 
-
     def fileno(self) -> int:
         """Return the underlying file descriptor, i.e. self. Raises a
         ValueError when closed.
@@ -110,22 +109,30 @@ class FileDescriptor:
         objects with a fileno method may succeed. Ownership is not considered
         for comparison.
         """
-        if self.fd is None:
-            return (
-                other is None
-                or (isinstance(other, int) and other < 0)
-                or (isinstance(other, FileDescriptor) and other.fd is None)
-            )
-        if isinstance(other, int):
-            return self.fileno() == other
         try:
-            filenometh = getattr(other, "fileno")
-        except AttributeError:
-            return False
-        otherfileno = filenometh()
-        if not isinstance(otherfileno, int):
-            return False
-        return self.fileno() == otherfileno
+            selffileno = self.fileno()
+        except ValueError:
+            selffileno = None
+        if other is None:
+            otherfileno = None
+        elif isinstance(other, int):
+            if other < 0:
+                otherfileno = None
+            else:
+                otherfileno = other
+        else:
+            try:
+                fileno_meth = getattr(other, "fileno")
+            except AttributeError:
+                return False
+            try:
+                otherfileno = fileno_meth()
+            except ValueError:
+                otherfileno = None
+            else:
+                if otherfileno < 0:
+                    otherfileno = None
+        return selffileno == otherfileno
 
     def __enter__(self) -> typing.Self:
         """Implement the context manager protocol yielding self and closing

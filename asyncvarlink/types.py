@@ -82,7 +82,10 @@ class FileDescriptor:
             raise ValueError("closed or released file descriptor")
         if isinstance(self.fd, int):
             return self.fd
-        return self.fd.fileno()
+        fd = self.fd.fileno()
+        if fd < 0:
+            raise ValueError("closed or released file descriptor")
+        return fd
 
     __int__ = fileno
 

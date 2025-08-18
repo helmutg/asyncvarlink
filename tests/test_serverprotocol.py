@@ -190,7 +190,6 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                     os.close(fds[0])
                     self.assertEqual(data, b"needle")
 
-
     async def test_protocol_violation(self) -> None:
         await self.invoke(
             b"{}",

@@ -54,7 +54,10 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data, expected)
 
     def _send_data(
-        self, fut: asyncio.Future, data: bytes, fds: list[int] | None = None
+        self,
+        fut: asyncio.Future[None],
+        data: bytes,
+        fds: list[int] | None = None,
     ) -> None:
         if fds is None:
             fds = []

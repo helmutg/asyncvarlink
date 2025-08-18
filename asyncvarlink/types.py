@@ -4,6 +4,7 @@
 """Basic type definitions."""
 
 import asyncio
+import contextlib
 import logging
 import os
 import re
@@ -104,6 +105,13 @@ class FileDescriptor:
         finally:
             self.fd = None
 
+    def release(self) -> None:
+        """Close the file descriptor if it should be closed. Do nothing
+        otherwise.
+        """
+        if self.should_close:
+            self.close()
+
     def __eq__(self, other: typing.Any) -> bool:
         """Compare two file descriptors. Comparison to integers, None or
         objects with a fileno method may succeed. Ownership is not considered
@@ -200,6 +208,19 @@ class FutureCounted:
         """
         self._references: set[int] = {id(initial)}
 
+    @classmethod
+    @contextlib.contextmanager
+    def new_managed(cls) -> typing.Iterator[typing.Self]:
+        """Create a managed object whose lifetime is managed in a context
+        manager.
+        """
+        sentinel = object()
+        obj = cls(sentinel)
+        try:
+            yield obj
+        finally:
+            obj.release(sentinel)
+
     def reference(self, referee: typing.Any) -> None:
         """Record an object as referee. The referee should be either passed to
         release once or garbage collected by Python.
@@ -236,11 +257,13 @@ class FutureCounted:
 
 
 class FileDescriptorArray(FutureCounted):
-    """Represent an array of file descriptors owned and eventually released by
-    the array. The lifetime can be controlled in two ways. Responsibility for
-    individual file descriptors can be assumed by using the take method and
-    thus removing them from the array. The lifetime of the entire array can
-    be extended using the FutureCounted mechanism inherited from.
+    """Represent an array of observed or owned file descriptors. When the array
+    is released, the contained file descriptors are released which amounts to
+    closing the owned ones. The lifetime can be controlled in two ways.
+    Responsibility for individual file descriptors can be assumed by using the
+    take method and thus removing them from the array. The lifetime of the
+    entire array can be extended using the FutureCounted mechanism inherited
+    from. Each file descriptor in the array must be unique.
     """
 
     def __init__(
@@ -248,38 +271,120 @@ class FileDescriptorArray(FutureCounted):
         initial_referee: typing.Any,
         fds: typing.Iterable[HasFileno | int | None] | None = None,
     ):
+        """Construct a FileDescriptorArray. The initial_referee is passed to
+        the FutureCounted constructor. The fds iterable must not contain any
+        fileno several times. Note that file descriptors not wrapped in
+        FileDescriptor are assumed to be owned and shall be closed.
+        """
         super().__init__(initial_referee)
-        self._fds: list[FileDescriptor] = [
-            FileDescriptor(fd, should_close=True) for fd in fds or ()
-        ]
+        self._by_position: list[FileDescriptor] = []
+        self._by_fileno: dict[int, int] = {}
+        for fdlike in fds or ():
+            if fdlike is None:
+                fileno = None
+            else:
+                try:
+                    fileno_meth = getattr(fdlike, "fileno")
+                except AttributeError:
+                    assert isinstance(fdlike, int)
+                    fileno = fdlike
+                else:
+                    try:
+                        fileno = fileno_meth()
+                    except ValueError:
+                        fileno = None
+                    else:
+                        assert isinstance(fileno, int)
+                        if fileno < 0:
+                            fileno = None
+            if fileno is None:
+                self._by_position.append(FileDescriptor(None))
+            elif fileno in self._by_fileno:
+                raise ValueError(
+                    f"file descriptor {fileno} passed several times"
+                )
+            else:
+                fd = FileDescriptor(fdlike, should_close=True)
+                if fileno is not None:
+                    self._by_fileno[fileno] = len(self._by_position)
+                self._by_position.append(fd)
 
     def __bool__(self) -> bool:
         """Are there any owned file descriptors in the array?"""
-        return any(self._fds)
+        return any(self._by_position)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FileDescriptorArray):
             return False
-        if len(self._fds) != len(other._fds):
+        if len(self._by_position) != len(other._by_position):
             return False
-        return all(fd1 == fd2 for fd1, fd2 in zip(self._fds, other._fds))
+        return all(
+            fd1 == fd2
+            for fd1, fd2 in zip(self._by_position, other._by_position)
+        )
 
     def __len__(self) -> int:
-        return len(self._fds)
+        return len(self._by_position)
 
     def __getitem__(self, index: int) -> FileDescriptor:
-        return self._fds[index]
+        return self._by_position[index]
 
     def __iter__(self) -> typing.Iterator[FileDescriptor]:
-        return iter(self._fds)
+        return iter(self._by_position)
 
-    def close(self) -> None:
-        """Close all owned file descriptors. Idempotent."""
+    def destroy(self) -> None:
+        """Release all file descriptors. This amounts to closing owned ones.
+        Idempotent.
+        """
         for fd in self:
-            fd.close()
+            fd.release()
 
-    __del__ = close
-    destroy = close
+    def add(self, fdlike: HasFileno | int | None) -> int:
+        """Append a file descriptor to the array and return its position. If
+        None or a closed file descriptor are passed, a ValueError is raised.
+        If the file descriptor already is in the array, the add call must pass
+        the same representation (equal integer or identical object) and the
+        existing index is returned. Descriptors not wrapped in the
+        FileDescriptor class are closed eventually.
+        """
+        if isinstance(fdlike, FileDescriptor):
+            # Propagate ValueError
+            fileno = fdlike.fileno()
+        elif fdlike is None:
+            raise ValueError("attempt to add closed file descriptor")
+        else:
+            try:
+                fileno_meth = getattr(fdlike, "fileno")
+            except AttributeError:
+                assert isinstance(fdlike, int)
+                if fdlike < 0:
+                    raise ValueError(
+                        "attempt to add negative file descriptor"
+                    ) from None
+                fileno = fdlike
+            else:
+                # Propagate ValueError
+                fileno = fileno_meth()
+                if fileno < 0:
+                    raise ValueError("attempt to add negative file descriptor")
+        try:
+            index = self._by_fileno[fileno]
+        except KeyError:
+            if not isinstance(fdlike, FileDescriptor):
+                fdlike = FileDescriptor(fdlike, True)
+            index = len(self._by_position)
+            self._by_position.append(fdlike)
+            self._by_fileno[fileno] = index
+            return index
+        other = self._by_position[index]
+        if other is fdlike or other.fd is fdlike or isinstance(fdlike, int):
+            return index
+        raise ValueError(
+            f"attempt to add {fileno} with different representation "
+            f"{fdlike!r} than existing entry {other.fd!r}"
+        )
+
+    __del__ = destroy
 
 
 def validate_interface(interface: str) -> None:

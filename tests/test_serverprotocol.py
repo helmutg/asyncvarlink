@@ -4,11 +4,13 @@
 import asyncio
 import contextlib
 import json
+import os
 import socket
 import typing
 import unittest
 
 from asyncvarlink import (
+    FileDescriptor,
     TypedVarlinkErrorReply,
     VarlinkInterface,
     VarlinkInterfaceRegistry,
@@ -52,6 +54,21 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         yield 1
         yield 2
 
+    @varlinkmethod(return_parameter="fd")
+    async def CreateFd(
+        self, kind: typing.Literal["pipe", "socket"]
+    ) -> FileDescriptor:
+        if kind == "pipe":
+            rend, wend = os.pipe()
+            os.write(wend, b"needle")
+            os.close(wend)
+            return FileDescriptor(rend, True)
+        assert kind == "socket"
+        sock1, sock2 = socket.socketpair()
+        sock1.send(b"needle")
+        sock1.close()
+        return FileDescriptor(sock2, True)
+
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
@@ -84,6 +101,25 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             else:
                 sock2.close()
             sock1.close()
+
+    def sock_recv_fds(
+        self, sock: socket.socket
+    ) -> asyncio.Future[tuple[bytes, list[int]]]:
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+        loop.add_reader(sock, self._sock_recv_fds, sock, fut)
+        return fut
+
+    def _sock_recv_fds(
+        self, sock: socket.socket, fut: asyncio.Future[tuple[bytes, list[int]]]
+    ) -> None:
+        asyncio.get_running_loop().remove_reader(sock)
+        try:
+            data, fds, _flags, _addr = socket.recv_fds(sock, 1024, 32)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result((data, fds))
 
     async def invoke(self, request: bytes, expected_response: bytes) -> None:
         loop = asyncio.get_running_loop()
@@ -134,6 +170,26 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             b'{"method":"com.example.demo.AsyncAnswer"}',
             b'{"parameters":{"result":42}}',
         )
+
+    async def test_return_fd(self) -> None:
+        loop = asyncio.get_running_loop()
+        async with self.connected_server() as (sock1, sock2):
+            for kind in ("pipe", "socket"):
+                with self.subTest(kind=kind):
+                    await loop.sock_sendall(
+                        sock1,
+                        b'{"method":"com.example.demo.CreateFd","parameters":{"kind":"%s"}}\0'
+                        % kind.encode("ascii"),
+                    )
+                    data, fds = await self.sock_recv_fds(sock1)
+                    self.assertEqual(data, b'{"parameters":{"fd":0}}\0')
+                    self.assertEqual(len(fds), 1)
+                    # We should not do a synchronous read in async code, but
+                    # this should be immediate.
+                    data = os.read(fds[0], 1024)
+                    os.close(fds[0])
+                    self.assertEqual(data, b"needle")
+
 
     async def test_protocol_violation(self) -> None:
         await self.invoke(

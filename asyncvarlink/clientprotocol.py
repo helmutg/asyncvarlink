@@ -257,61 +257,69 @@ class VarlinkInterfaceProxy:
             async def proxy_call_more(
                 **kwargs: typing.Any,
             ) -> typing.AsyncGenerator[typing.Any, None]:
-                pfds: list[int] = []
-                # This may raise a ConversionError.
-                parameters = signature.parameter_type.tojson(
-                    kwargs, {FileDescriptorVarlinkType: pfds}
-                )
-                async for reply, rfds in self._protocol.call_more(
-                    VarlinkMethodCall(fqmethod, parameters, more=True), pfds
-                ):
-                    if reply.error is None:
-                        # This may raise a ConversionError.
-                        ret = signature.return_type.fromjson(
-                            reply.parameters, {FileDescriptorVarlinkType: rfds}
-                        )
-                        if signature.return_type.contains_fds:
-                            if rfds is None:
-                                yield contextlib.nullcontext(ret)
+                with FileDescriptorArray.new_managed() as pfds:
+                    # This may raise a ConversionError.
+                    parameters = signature.parameter_type.tojson(
+                        kwargs, {FileDescriptorVarlinkType: pfds}
+                    )
+                    async for reply, rfds in self._protocol.call_more(
+                        VarlinkMethodCall(fqmethod, parameters, more=True),
+                        [fd.fileno() for fd in pfds],
+                    ):
+                        if reply.error is None:
+                            # This may raise a ConversionError.
+                            ret = signature.return_type.fromjson(
+                                reply.parameters,
+                                {FileDescriptorVarlinkType: rfds},
+                            )
+                            if signature.return_type.contains_fds:
+                                if rfds is None:
+                                    yield contextlib.nullcontext(ret)
+                                else:
+                                    sentinel = object()
+                                    rfds.reference(sentinel)
+                                    yield _ResourceManager(
+                                        ret, lambda: rfds.release(sentinel)
+                                    )
                             else:
-                                sentinel = object()
-                                rfds.reference(sentinel)
-                                yield _ResourceManager(
-                                    ret, lambda: rfds.release(sentinel)
-                                )
+                                yield ret
                         else:
-                            yield ret
-                    else:
-                        raise GenericVarlinkErrorReply(
-                            reply.error, reply.parameters
-                        )
+                            raise GenericVarlinkErrorReply(
+                                reply.error, reply.parameters
+                            )
 
             return proxy_call_more
 
         async def proxy_call(**kwargs: typing.Any) -> typing.Any:
-            pfds: list[int] = []
-            # This may raise a ConversionError
-            parameters = signature.parameter_type.tojson(
-                kwargs, {FileDescriptorVarlinkType: pfds}
-            )
-            with completing_future() as donefut:
-                result = await self._protocol.call(
-                    VarlinkMethodCall(fqmethod, parameters), pfds, donefut
+            with FileDescriptorArray.new_managed() as pfds:
+                # This may raise a ConversionError
+                parameters = signature.parameter_type.tojson(
+                    kwargs, {FileDescriptorVarlinkType: pfds}
                 )
-                assert result is not None
-                reply, fda = result
-                if reply.error is None:
-                    # This may raise a ConversionError.
-                    ret = signature.return_type.fromjson(
-                        reply.parameters, {FileDescriptorVarlinkType: fda}
+                with completing_future() as donefut:
+                    result = await self._protocol.call(
+                        VarlinkMethodCall(fqmethod, parameters),
+                        [fd.fileno() for fd in pfds],
+                        donefut,
                     )
-                    if not signature.return_type.contains_fds:
-                        return ret
-                    if fda is None:
-                        return contextlib.nullcontext(ret)
-                    sentinel = object()
-                    fda.reference(sentinel)
-                    return _ResourceManager(ret, lambda: fda.release(sentinel))
-                raise GenericVarlinkErrorReply(reply.error, reply.parameters)
+                    assert result is not None
+                    reply, fda = result
+                    if reply.error is None:
+                        # This may raise a ConversionError.
+                        ret = signature.return_type.fromjson(
+                            reply.parameters, {FileDescriptorVarlinkType: fda}
+                        )
+                        if not signature.return_type.contains_fds:
+                            return ret
+                        if fda is None:
+                            return contextlib.nullcontext(ret)
+                        sentinel = object()
+                        fda.reference(sentinel)
+                        return _ResourceManager(
+                            ret, lambda: fda.release(sentinel)
+                        )
+                    raise GenericVarlinkErrorReply(
+                        reply.error, reply.parameters
+                    )
 
         return proxy_call

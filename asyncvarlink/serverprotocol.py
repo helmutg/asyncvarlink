@@ -254,13 +254,17 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
         assert not result.continues
         if oneway:
             return None
-        fds: list[int] = []  # modified by tojson
-        jsonparams = signature.return_type.tojson(
-            result.parameters, {FileDescriptorVarlinkType: fds}
-        )
-        return self.send_reply(
-            VarlinkMethodReply(jsonparams, extensions=result.extensions), fds
-        )
+        with FileDescriptorArray.new_managed() as fds:
+            jsonparams = signature.return_type.tojson(
+                result.parameters, {FileDescriptorVarlinkType: fds}
+            )
+            fut = self.send_reply(
+                VarlinkMethodReply(jsonparams, extensions=result.extensions),
+                [fd.fileno() for fd in fds],
+                autoclose=False,
+            )
+            fds.reference_until_done(fut)
+        return fut
 
     async def _call_sync_method_more(
         self,
@@ -270,21 +274,29 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
     ) -> None:
         try:
             continues = True
-            for result in method(**pyparams):
+            generator = method(**pyparams)
+            for result in generator:
                 assert continues
                 assert isinstance(result, AnnotatedResult)
-                fds: list[int] = []  # modified by tojson
-                jsonparams = signature.return_type.tojson(
-                    result.parameters, {FileDescriptorVarlinkType: fds}
-                )
-                await self.send_reply(
-                    VarlinkMethodReply(
-                        jsonparams,
-                        continues=result.continues,
-                        extensions=result.extensions,
-                    ),
-                    fds,
-                )
+                with FileDescriptorArray.new_managed() as fds:
+                    jsonparams = signature.return_type.tojson(
+                        result.parameters, {FileDescriptorVarlinkType: fds}
+                    )
+                    fut = self.send_reply(
+                        VarlinkMethodReply(
+                            jsonparams,
+                            continues=result.continues,
+                            extensions=result.extensions,
+                        ),
+                        [fd.fileno() for fd in fds],
+                        autoclose=False,
+                    )
+                    fds.reference_until_done(fut)
+                try:
+                    await fut
+                except OSError:
+                    generator.close()
+                    return
                 continues = result.continues
             assert not continues
         except VarlinkErrorReply as err:
@@ -303,14 +315,18 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
             assert not result.continues
             if oneway:
                 return
-            fds: list[int] = []  # modified by tojson
-            jsonparams = signature.return_type.tojson(
-                result.parameters, {FileDescriptorVarlinkType: fds}
-            )
-            await self.send_reply(
-                VarlinkMethodReply(jsonparams, extensions=result.extensions),
-                fds,
-            )
+            with FileDescriptorArray.new_managed() as fds:
+                jsonparams = signature.return_type.tojson(
+                    result.parameters, {FileDescriptorVarlinkType: fds}
+                )
+                fut = self.send_reply(
+                    VarlinkMethodReply(
+                        jsonparams, extensions=result.extensions
+                    ),
+                    [fd.fileno() for fd in fds],
+                    autoclose=False,
+                )
+                fds.reference_until_done(fut)
         except VarlinkErrorReply as err:
             if not oneway:
                 self.send_reply(err)
@@ -323,21 +339,29 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
     ) -> None:
         try:
             continues = True
-            async for result in method(**pyparams):
+            generator = method(**pyparams)
+            async for result in generator:
                 assert continues
                 assert isinstance(result, AnnotatedResult)
-                fds: list[int] = []  # modified by tojson
-                jsonparams = signature.return_type.tojson(
-                    result.parameters, {FileDescriptorVarlinkType: fds}
-                )
-                await self.send_reply(
-                    VarlinkMethodReply(
-                        jsonparams,
-                        continues=result.continues,
-                        extensions=result.extensions,
-                    ),
-                    fds,
-                )
+                with FileDescriptorArray.new_managed() as fds:
+                    jsonparams = signature.return_type.tojson(
+                        result.parameters, {FileDescriptorVarlinkType: fds}
+                    )
+                    fut = self.send_reply(
+                        VarlinkMethodReply(
+                            jsonparams,
+                            continues=result.continues,
+                            extensions=result.extensions,
+                        ),
+                        [fd.fileno() for fd in fds],
+                        autoclose=False,
+                    )
+                    fds.reference_until_done(fut)
+                try:
+                    await fut
+                except OSError:
+                    generator.aclose()
+                    return
                 continues = result.continues
             assert not continues
         except VarlinkErrorReply as err:

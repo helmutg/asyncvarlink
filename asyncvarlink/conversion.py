@@ -612,26 +612,22 @@ class FileDescriptorVarlinkType(VarlinkType):
     def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> int:
         """Represent a file descriptor. It may be conveyed as int | HasFileno.
         The actual file descriptor is appended to the out-of-band state array
-        and the returned json value is the index into said array. A list[int]
-        should be conveyed as out-of-band state.
+        and the returned json value is the index into said array. A
+        FileDescriptorArray should be conveyed as out-of-band state.
         """
-        if not isinstance(obj, int):
-            try:
-                filenomethod = getattr(obj, "fileno")
-            except AttributeError:
-                raise ConversionError.expected(
-                    "int or fileno()-like", obj
-                ) from None
-            obj = filenomethod()
-        fdlist = self._get_oob(oobstate)
-        if not isinstance(fdlist, list):
+        if not (isinstance(obj, int) or hasattr(obj, "fileno")):
+            raise ConversionError.expected("int or fileno()-like", obj)
+        fdarray = self._get_oob(oobstate)
+        if not isinstance(fdarray, FileDescriptorArray):
             raise ConversionError(
                 f"out-of-band state for {self.__class__.__name__} should be "
-                f"list[int], is {type(fdlist)}"
+                f"FileDescriptorArray, is {type(fdarray)}"
             )
-        result = len(fdlist)
-        fdlist.append(obj)
-        return result
+        try:
+            index = fdarray.add(obj)
+        except ValueError as err:
+            raise ConversionError("invalid file descriptor") from err
+        return index
 
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None

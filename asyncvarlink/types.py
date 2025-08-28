@@ -26,10 +26,16 @@ JSONObject = dict[str, JSONValue]
 class HasFileno(typing.Protocol):
     """A typing protocol representing a file-like object and looking up the
     underlying file descriptor.
+
+    The object may also have a close method. It must not take arguments and
+    can be called at most once to release resources.
     """
 
     def fileno(self) -> int:
-        """Return the underlying file descriptor."""
+        """Return the underlying file descriptor. When invoked on a closed
+        object, the method may return a negative number or raise a
+        ValueError.
+        """
 
 
 class FileDescriptor:

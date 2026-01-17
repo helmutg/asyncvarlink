@@ -104,7 +104,7 @@ class TestInterface(unittest.TestCase):
         self.assertEqual(
             iface.annotated_named(), AnnotatedResult(res("annotated_named"))
         )
-        self.assertEqual(iface.iterable(), AnnotatedResult(res([])))
+        self.assertEqual(iface.iterable(), AnnotatedResult({"result": []}))
         self.assertRaises(ExpectedError, iface.error)
 
         it = iface.gen()

@@ -393,21 +393,24 @@ class VarlinkProtocol(VarlinkBaseProtocol):
             if fds:
                 fut = loop.create_future()
                 fds.reference_until_done(fut)
+            call: typing.Callable[[], asyncio.Future[None] | None]
             try:
                 obj = json.loads(reqdata)
             except json.decoder.JSONDecodeError as err:
-                self._consumer_queue.append(
-                    (
-                        functools.partial(
-                            self.error_received, err, reqdata, fds
-                        ),
-                        fut,
-                    ),
+                call = functools.partial(
+                    self.error_received, err, reqdata, fds
                 )
             else:
-                self._consumer_queue.append(
-                    (functools.partial(self.request_received, obj, fds), fut)
-                )
+                if isinstance(obj, dict):
+                    call = functools.partial(self.request_received, obj, fds)
+                else:
+                    call = functools.partial(
+                        self.error_received,
+                        TypeError("received JSON value is not an object"),
+                        reqdata,
+                        fds,
+                    )
+            self._consumer_queue.append((call, fut))
             if not processing:
                 loop.call_soon(self._process_queue, None)
                 processing = True

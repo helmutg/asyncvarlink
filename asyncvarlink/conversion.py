@@ -15,16 +15,23 @@ from .types import FileDescriptor, FileDescriptorArray, JSONValue, JSONObject
 class ConversionError(Exception):
     """A failure to convert a Python value from or to a JSONValue."""
 
-    def __init__(self, message: str):
-        self.location: list[str | int] = []
+    def __init__(self, message: str, location: list[str | int] | None = None):
         self.message = message
+        self.location: list[str | int] = [] if location is None else location
 
     @classmethod
-    def expected(cls, what: str, obj: typing.Any) -> "ConversionError":
+    def expected(
+        cls,
+        what: str,
+        obj: typing.Any,
+        location: list[str | int] | None = None,
+    ) -> "ConversionError":
         """Construct a Conversion error indicating that something described by
         what was expected whereas a different type was found.
         """
-        return cls(f"expected {what}, but got a {type(obj).__name__}")
+        return cls(
+            f"expected {what}, but got a {type(obj).__name__}", location
+        )
 
     @classmethod
     @contextlib.contextmanager
@@ -368,10 +375,9 @@ class SetVarlinkType(VarlinkType):
             if not isinstance(key, str):
                 raise ConversionError.expected("string as map key", key)
             if value != {}:
-                with ConversionError.context(key):
-                    raise ConversionError.expected(
-                        "empty struct as map value", value
-                    )
+                raise ConversionError.expected(
+                    "empty struct as map value", value, [key]
+                )
             result.add(key)
         return result
 

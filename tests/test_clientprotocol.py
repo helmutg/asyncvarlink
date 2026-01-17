@@ -166,6 +166,24 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             await fut
         self.assertLess(self.sock2.fileno(), 0)
 
+    async def test_non_json_reply(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.send_data(b"this is not json\0")
+        with self.assertRaises(json.JSONDecodeError):
+            await fut
+
+    async def test_non_object_reply(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.send_data(b'"not an object"\0')
+        with self.assertRaises(TypeError):
+            await fut
+
+    async def test_missing_fields(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.send_data(b'{"missing fields":0}\0')
+        with self.assertRaises(ConversionError):
+            await fut
+
     async def test_return_fd(self) -> None:
         fut = asyncio.ensure_future(self.proxy.CreateFd())
         await self.expect_data(b'{"method":"com.example.demo.CreateFd"}\0')

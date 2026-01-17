@@ -120,7 +120,9 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(fut1.done())
         self.assertFalse(fut2.done())
-        await self.send_data(b'{"result":"one"}}\0{"parameters":{"result":"two"}}\0')
+        await self.send_data(
+            b'{"result":"one"}}\0{"parameters":{"result":"two"}}\0'
+        )
         self.assertEqual(await fut1, {"result": "one"})
         self.assertEqual(await fut2, {"result": "two"})
 

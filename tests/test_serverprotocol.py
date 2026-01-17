@@ -176,6 +176,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             b'{"method":"com.example.demo.Answer","parameters":{"unexpected":1}}',
             b'{"error":"org.varlink.service.InvalidParameter","parameters":{"parameter":"unexpected"}}',
         )
+
     async def test_async(self) -> None:
         await self.invoke(
             b'{"method":"com.example.demo.AsyncAnswer"}',

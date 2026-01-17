@@ -165,6 +165,17 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             b'{"error":"com.example.demo.DemoError"}',
         )
 
+    async def test_invalid_method(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.DoesNotExist"}',
+            b'{"error":"org.varlink.service.MethodNotFound","parameters":{"method":"DoesNotExist"}}',
+        )
+
+    async def test_invalid_parameters(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.Answer","parameters":{"unexpected":1}}',
+            b'{"error":"org.varlink.service.InvalidParameter","parameters":{"parameter":"unexpected"}}',
+        )
     async def test_async(self) -> None:
         await self.invoke(
             b'{"method":"com.example.demo.AsyncAnswer"}',

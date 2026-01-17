@@ -423,13 +423,13 @@ class ObjectVarlinkType(VarlinkType):
                 if isinstance(vtype, OptionalVarlinkType):
                     continue
                 raise ConversionError(
-                    f"missing required key {key} in given dict"
+                    f"missing required key {key} in given dict", [key]
                 ) from err
             with ConversionError.context(key):
                 result[key] = vtype.tojson(value, oobstate)
         for key in obj:
             if key not in self._typemap:
-                raise ConversionError(f"no type for key {key}")
+                raise ConversionError(f"no type for key {key}", [key])
         return result
 
     def fromjson(
@@ -451,7 +451,7 @@ class ObjectVarlinkType(VarlinkType):
                 result[key] = vtype.fromjson(value, oobstate)
         for key in obj:
             if key not in self._typemap:
-                raise ConversionError(f"no type for key {key}")
+                raise ConversionError(f"no type for key {key}", [key])
         return result
 
     def __repr__(self) -> str:

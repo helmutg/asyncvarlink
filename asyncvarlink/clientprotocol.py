@@ -172,6 +172,14 @@ class VarlinkClientProtocol(VarlinkProtocol):
             pending = self._pending.popleft()
         pending.request_received(obj, fds)
 
+    def error_received(
+        self,
+        err: Exception,
+        _data: bytes,
+        _fds: FileDescriptorArray | None,
+    ) -> None:
+        self.connection_lost(err)
+
     def connection_lost(self, exc: Exception | None) -> None:
         super().connection_lost(exc)
         if exc is None:

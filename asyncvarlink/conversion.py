@@ -129,7 +129,8 @@ class VarlinkType:
                 assert isinstance(tobj, type)
                 return DataclassVarlinkType(tobj)
         elif origin is typing.Literal:
-            return LiteralVarlinkType(args)
+            if all(isinstance(arg, str) for arg in args):
+                return LiteralVarlinkType(args)
         elif origin is typing.Union or origin is types.UnionType:
             if any(arg is types.NoneType for arg in args):
                 remaining = [alt for alt in args if alt is not types.NoneType]

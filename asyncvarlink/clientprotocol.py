@@ -6,6 +6,7 @@
 import asyncio
 import collections
 import contextlib
+import functools
 import typing
 
 from .conversion import FileDescriptorVarlinkType
@@ -279,7 +280,10 @@ class VarlinkInterfaceProxy:
                                     sentinel = object()
                                     rfds.reference(sentinel)
                                     yield _ResourceManager(
-                                        ret, lambda: rfds.release(sentinel)
+                                        ret,
+                                        functools.partial(
+                                            rfds.release, sentinel
+                                        ),
                                     )
                             else:
                                 yield ret
@@ -316,7 +320,7 @@ class VarlinkInterfaceProxy:
                         sentinel = object()
                         fda.reference(sentinel)
                         return _ResourceManager(
-                            ret, lambda: fda.release(sentinel)
+                            ret, functools.partial(fda.release, sentinel)
                         )
                     raise GenericVarlinkErrorReply(
                         reply.error, reply.parameters

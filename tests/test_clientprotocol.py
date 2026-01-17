@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
 import asyncio
+import json
 import os
 import socket
 import typing
@@ -106,6 +107,22 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await fut, {"result": "egg"})
         with self.assertRaises(StopAsyncIteration):
             await anext(gen)
+
+    async def test_fragmentation(self) -> None:
+        fut1 = asyncio.ensure_future(self.proxy.Method(argument="first"))
+        await self.expect_data(
+            b'{"method":"com.example.demo.Method","parameters":{"argument":"first"}}\0'
+        )
+        await self.send_data(b'{"parameters":')
+        fut2 = asyncio.ensure_future(self.proxy.Method(argument="second"))
+        await self.expect_data(
+            b'{"method":"com.example.demo.Method","parameters":{"argument":"second"}}\0'
+        )
+        self.assertFalse(fut1.done())
+        self.assertFalse(fut2.done())
+        await self.send_data(b'{"result":"one"}}\0{"parameters":{"result":"two"}}\0')
+        self.assertEqual(await fut1, {"result": "one"})
+        self.assertEqual(await fut2, {"result": "two"})
 
     async def test_invalid_argument(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(invalid_argument=True))

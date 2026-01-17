@@ -93,6 +93,14 @@ class VarlinkServerProtocol(VarlinkProtocol):
     VarlinkErrorReply objects. A derived class should implement call_received.
     """
 
+    def _on_message_sent(self, fut: asyncio.Future[None]) -> None:
+        assert fut.done()
+        exc = fut.exception()
+        if exc is None or isinstance(exc, BrokenPipeError):
+            # The lower layer will close the connection on BrokenPipeError.
+            return
+        _logger.exception("Sending reply failed", exc_info=exc)
+
     def send_reply(
         self,
         reply: VarlinkMethodReply | VarlinkErrorReply,
@@ -111,7 +119,9 @@ class VarlinkServerProtocol(VarlinkProtocol):
                 for fd in fds:
                     os.close(fd)
             fds = []
-        return self.send_message(json, fds, autoclose)
+        fut = self.send_message(json, fds, autoclose)
+        fut.add_done_callback(self._on_message_sent)
+        return fut
 
     def _on_receiver_completes(
         self,

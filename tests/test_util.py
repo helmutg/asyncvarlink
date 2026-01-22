@@ -69,6 +69,7 @@ class GetListenFdTests(unittest.TestCase):
             # backwards compatibility.
             fd = get_listen_fd("spam")
             self.assertEqual(fd, 3)
+            assert fd is not None  # help mypy
             fd.take()
         with unittest.mock.patch.dict(
             "os.environ",
@@ -77,6 +78,7 @@ class GetListenFdTests(unittest.TestCase):
         ):
             fd = get_listen_fd("spam")
             self.assertEqual(fd, 3)
+            assert fd is not None  # help mypy
             fd.take()
         with unittest.mock.patch.dict(
             "os.environ",
@@ -89,4 +91,5 @@ class GetListenFdTests(unittest.TestCase):
         ):
             fd = get_listen_fd("spam")
             self.assertEqual(fd, 4)
+            assert fd is not None  # help mypy
             fd.take()

@@ -43,7 +43,7 @@ class AnnotatedResult:
     details.
     """
 
-    parameters: dict[str, typing.Any]
+    parameters: typing.Mapping[str, typing.Any]
     """Parameter mapping that would normally returned without this wrapper."""
 
     _: dataclasses.KW_ONLY

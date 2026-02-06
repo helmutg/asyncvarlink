@@ -15,6 +15,8 @@ from .serviceerrors import (
     InterfaceNotFound,
     InvalidParameter,
     MethodNotFound,
+    MethodNotImplemented,
+    PermissionDenied,
 )
 
 
@@ -23,6 +25,8 @@ __all__ = [
     "InterfaceNotFound",
     "InvalidParameter",
     "MethodNotFound",
+    "MethodNotImplemented",
+    "PermissionDenied",
     "VarlinkServiceInterface",
 ]
 

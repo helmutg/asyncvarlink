@@ -383,8 +383,9 @@ class VarlinkInterface:
     """Optionally, an interface may list the possible errors that may be
     returned.
 
-    For use with a client proxy, this causes the error classes to be used for
-    decoding error replies.
+    For use with a server, this causes the errors with matching interface to be
+    included in the rendered interface description. For use with a client
+    proxy, this causes the error classes to be used for decoding error replies.
     """
 
     _error_map: dict[str, type[TypedVarlinkErrorReply]]
@@ -426,6 +427,7 @@ class VarlinkInterface:
         """
         typedefs: dict[str, str] = {}
         methods: dict[str, VarlinkMethodSignature] = {}
+        errors: dict[str, str] = {}
         for name in dir(cls):
             obj = getattr(cls, name)
             if (signature := varlinksignature(obj)) is None:
@@ -436,6 +438,11 @@ class VarlinkInterface:
                 signature.return_type.typedefs,
             )
             methods[name] = signature
+        prefix = cls.name + "."
+        for error in cls.errors:
+            if error.name.startswith(prefix):
+                _merge_typedefs(typedefs, error.paramtype.typedefs)
+                errors[error.name[len(prefix) :]] = error.paramtype.as_varlink
         return "\n".join(
             itertools.chain(
                 (f"interface {cls.name}", ""),
@@ -445,6 +452,10 @@ class VarlinkInterface:
                     f"method {name}{signature.parameter_type.as_varlink} -> "
                     f"{signature.return_type.as_varlink}"
                     for name, signature in methods.items()
+                ),
+                (
+                    f"error {name} {varlinktype}"
+                    for name, varlinktype in errors.items()
                 ),
                 ("",),
             ),

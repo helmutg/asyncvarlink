@@ -10,7 +10,6 @@ import functools
 import typing
 
 from .conversion import FileDescriptorVarlinkType
-from .error import GenericVarlinkErrorReply
 from .interface import VarlinkInterface, varlinksignature
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
@@ -296,9 +295,7 @@ class VarlinkInterfaceProxy:
                             else:
                                 yield ret
                         else:
-                            raise GenericVarlinkErrorReply(
-                                reply.error, reply.parameters
-                            )
+                            self._interface.raise_error(reply)
 
             return proxy_call_more
 
@@ -330,8 +327,6 @@ class VarlinkInterfaceProxy:
                         return _ResourceManager(
                             ret, functools.partial(fda.release, sentinel)
                         )
-                    raise GenericVarlinkErrorReply(
-                        reply.error, reply.parameters
-                    )
+                    self._interface.raise_error(reply)
 
         return proxy_call

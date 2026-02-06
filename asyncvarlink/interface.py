@@ -10,6 +10,8 @@ import itertools
 import typing
 
 from .conversion import ObjectVarlinkType, VarlinkType, _merge_typedefs
+from .error import GenericVarlinkErrorReply, TypedVarlinkErrorReply
+from .message import VarlinkMethodReply
 from .types import JSONObject, validate_interface
 
 
@@ -377,6 +379,17 @@ class VarlinkInterface:
     name: str
     """The name of the varlink interface in dotted reverse domain notation."""
 
+    errors: typing.Sequence[type[TypedVarlinkErrorReply]] = ()
+    """Optionally, an interface may list the possible errors that may be
+    returned.
+
+    For use with a client proxy, this causes the error classes to be used for
+    decoding error replies.
+    """
+
+    _error_map: dict[str, type[TypedVarlinkErrorReply]]
+    """Constructed by __init_subclass__ from the errors sequence."""
+
     def __init_subclass__(
         cls: type["VarlinkInterface"], *, name: str | None = None
     ) -> None:
@@ -398,6 +411,13 @@ class VarlinkInterface:
             validate_interface(cls.name)
         except ValueError as err:
             raise RuntimeError("invalid VarlinkInterface name") from err
+
+        error_map = {}
+        for error in cls.errors:
+            if error.name in error_map:
+                raise RuntimeError(f"duplicate error {error.name}")
+            error_map[error.name] = error
+        cls._error_map = error_map
 
     @classmethod
     def render_interface_description(cls) -> str:
@@ -429,3 +449,20 @@ class VarlinkInterface:
                 ("",),
             ),
         )
+
+    @classmethod
+    def raise_error(cls, reply: VarlinkMethodReply) -> typing.NoReturn:
+        """Raise an exception from the given reply. It must be an error reply.
+        If the error name is found in the errors sequence a
+        TypedVarlinkErrorReply subclass is constructed. In that case, the given
+        parameters are validated and may raise a ConversionError.
+        """
+        if reply.error is None:
+            raise RuntimeError("raise_error invoked on non-error reply")
+        try:
+            errcls = cls._error_map[reply.error]
+        except KeyError:
+            raise GenericVarlinkErrorReply(
+                reply.error, reply.parameters
+            ) from None
+        raise errcls(errcls.paramtype.fromjson(reply.parameters))

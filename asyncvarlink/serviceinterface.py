@@ -34,6 +34,15 @@ __all__ = [
 class VarlinkServiceInterface(VarlinkInterface, name="org.varlink.service"):
     """Implementation of the basic varlink introspection interface."""
 
+    errors = (
+        InterfaceNotFound,
+        MethodNotFound,
+        MethodNotImplemented,
+        InvalidParameter,
+        PermissionDenied,
+        ExpectedMore,
+    )
+
     class _GetInfoResult(typing.TypedDict):
         vendor: str
         product: str

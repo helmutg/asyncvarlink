@@ -11,15 +11,28 @@ import unittest
 from asyncvarlink import (
     ConversionError,
     FileDescriptor,
+    TypedVarlinkErrorReply,
     VarlinkClientProtocol,
     VarlinkErrorReply,
     VarlinkInterface,
     VarlinkTransport,
     varlinkmethod,
 )
+from asyncvarlink.serviceinterface import (
+    PermissionDenied, VarlinkServiceInterface
+)
+
+
+class DemoFailure(TypedVarlinkErrorReply):
+    name = "com.example.demo.DemoFailure"
+
+    class Parameters:
+        pass
 
 
 class DemoInterface(VarlinkInterface, name="com.example.demo"):
+    errors = (DemoFailure,) + VarlinkServiceInterface.errors
+
     @varlinkmethod(return_parameter="result")
     def Method(self, argument: str) -> str: ...
 
@@ -132,6 +145,16 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(fut.done())
         self.assertRaises(ConversionError, fut.result)
 
+    async def test_demo_error(self) -> None:
+        fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
+        await self.expect_data(
+            b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
+        )
+        self.assertFalse(fut.done())
+        await self.send_data(b'{"error":"com.example.demo.DemoFailure"}\0')
+        with self.assertRaises(DemoFailure):
+            await fut
+
     async def test_permission_denied(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
         await self.expect_data(
@@ -141,14 +164,8 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         await self.send_data(
             b'{"error":"org.varlink.service.PermissionDenied"}\0'
         )
-        try:
-            result = await fut
-        except VarlinkErrorReply as err:
-            self.assertEqual(err.name, "org.varlink.service.PermissionDenied")
-        else:
-            self.fail(
-                f"expected a VarlinkErrorReply exception, got {result!r}"
-            )
+        with self.assertRaises(PermissionDenied):
+            await fut
 
     async def test_broken_pipe_send(self) -> None:
         self.sock1.close()

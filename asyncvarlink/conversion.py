@@ -9,7 +9,13 @@ import enum
 import types
 import typing
 
-from .types import FileDescriptor, FileDescriptorArray, JSONValue, JSONObject
+from .types import (
+    FileDescriptor,
+    FileDescriptorArray,
+    JSONValue,
+    JSONObject,
+    override,
+)
 
 
 class ConversionError(Exception):
@@ -193,7 +199,7 @@ class SimpleVarlinkType(VarlinkType):
         self.as_varlink = varlinktype
         self._convertible = tuple(convertible)
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
@@ -209,7 +215,7 @@ class SimpleVarlinkType(VarlinkType):
                 ) from exc
         raise ConversionError.expected(self.as_varlink, obj)
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -245,7 +251,7 @@ class OptionalVarlinkType(VarlinkType):
         self.typedefs = vtype.typedefs
         self.contains_fds = vtype.contains_fds
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
@@ -253,7 +259,7 @@ class OptionalVarlinkType(VarlinkType):
             return None
         return self._vtype.tojson(obj, oobstate)
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -264,7 +270,7 @@ class OptionalVarlinkType(VarlinkType):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._vtype!r})"
 
-    @typing.override
+    @override
     def optional(self) -> typing.Self:
         return self
 
@@ -280,7 +286,7 @@ class ListVarlinkType(VarlinkType):
         self.typedefs = elttype.typedefs
         self.contains_fds = elttype.contains_fds
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> list[JSONValue]:
@@ -292,7 +298,7 @@ class ListVarlinkType(VarlinkType):
                 result.append(self._elttype.tojson(elt, oobstate))
         return result
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -321,7 +327,7 @@ class DictVarlinkType(VarlinkType):
         self.typedefs = elttype.typedefs
         self.contains_fds = elttype.contains_fds
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONObject:
@@ -335,7 +341,7 @@ class DictVarlinkType(VarlinkType):
                 result[key] = self._elttype.tojson(value, oobstate)
         return result
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -362,7 +368,7 @@ class SetVarlinkType(VarlinkType):
     as_varlink = "[string]()"
     contains_fds = False
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONObject:
@@ -376,7 +382,7 @@ class SetVarlinkType(VarlinkType):
             result[elem] = {}
         return result
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -422,7 +428,7 @@ class ObjectVarlinkType(VarlinkType):
         )
         self.contains_fds = any(tobj.contains_fds for tobj in typemap.values())
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONObject:
@@ -445,7 +451,7 @@ class ObjectVarlinkType(VarlinkType):
                 raise ConversionError(f"no type for key {key}", [key])
         return result
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -501,7 +507,7 @@ class DataclassVarlinkType(VarlinkType):
             tobj.contains_fds for tobj in self._typemap.values()
         )
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONObject:
@@ -513,7 +519,7 @@ class DataclassVarlinkType(VarlinkType):
                 result[name] = vtype.tojson(getattr(obj, name), oobstate)
         return result
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -557,14 +563,14 @@ class EnumVarlinkType(VarlinkType):
             enumtype.__name__: "(%s)" % ", ".join(enumtype.__members__)
         }
 
-    @typing.override
+    @override
     def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> str:
         if not isinstance(obj, self.as_type):
             raise ConversionError.expected(f"enum {self.as_type!r}", obj)
         assert isinstance(obj, enum.Enum)
         return obj.name
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -594,13 +600,13 @@ class LiteralVarlinkType(VarlinkType):
         self.as_type = typing.Literal[values]
         self.as_varlink = "(%s)" % ", ".join(values)
 
-    @typing.override
+    @override
     def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> str:
         if not (isinstance(obj, str) and obj in self._values):
             raise ConversionError(f"invalid literal value {obj!r}")
         return obj
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -635,7 +641,7 @@ class FileDescriptorVarlinkType(VarlinkType):
                 "cannot convert a file descriptor without associated oobstate"
             ) from None
 
-    @typing.override
+    @override
     def tojson(self, obj: typing.Any, oobstate: OOBTypeState = None) -> int:
         """Represent a file descriptor. It may be conveyed as int | HasFileno.
         The actual file descriptor is appended to the out-of-band state array
@@ -656,7 +662,7 @@ class FileDescriptorVarlinkType(VarlinkType):
             raise ConversionError("invalid file descriptor") from err
         return index
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:
@@ -700,7 +706,7 @@ class ForeignVarlinkType(VarlinkType):
     def __init__(self, varlink: str = "object"):
         self.as_varlink = varlink
 
-    @typing.override
+    @override
     def tojson(
         self, obj: typing.Any, oobstate: OOBTypeState = None
     ) -> JSONValue:
@@ -708,7 +714,7 @@ class ForeignVarlinkType(VarlinkType):
         # hope that the user is doing things correctly.
         return typing.cast(JSONValue, obj)
 
-    @typing.override
+    @override
     def fromjson(
         self, obj: JSONValue, oobstate: OOBTypeState = None
     ) -> typing.Any:

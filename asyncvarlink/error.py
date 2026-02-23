@@ -8,7 +8,7 @@ import typing
 
 from .conversion import ObjectVarlinkType, VarlinkType
 from .message import VarlinkMethodReply
-from .types import JSONObject, JSONValue
+from .types import JSONObject, JSONValue, override
 
 
 class _VarlinkErrorParameterDescriptor:
@@ -63,7 +63,7 @@ class GenericVarlinkErrorReply(VarlinkErrorReply):
         self.name = error
         self.parameters = {} if parameters is None else parameters
 
-    @typing.override
+    @override
     def paramstojson(self) -> JSONObject:
         return self.parameters
 
@@ -185,7 +185,7 @@ class TypedVarlinkErrorReply(VarlinkErrorReply):
             setattr(cls, descname, desc)
             cls.__annotations__[descname] = ann
 
-    @typing.override
+    @override
     def paramstojson(self) -> JSONObject:
         ret = self.paramtype.tojson(self.parameters)
         assert isinstance(ret, dict)  # self.parameters is a dict.

@@ -11,6 +11,28 @@ import re
 import typing
 
 
+__all__ = [
+    "FileDescriptor",
+    "FileDescriptor",
+    "FutureCounted",
+    "HasFileno",
+    "JSONObject",
+    "JSONValue",
+    "close_fileno",
+    "override",
+    "validate_interface",
+    "validate_name",
+]
+
+if typing.TYPE_CHECKING:
+    from typing import override
+else:
+
+    def override(func):
+        """typing.override stub to be removed when dropping 3.11 support."""
+        return func
+
+
 _logger_fd = logging.getLogger("asyncvarlink.filedescriptor")
 
 
@@ -338,7 +360,7 @@ class FileDescriptorArray(FutureCounted):
     def __iter__(self) -> typing.Iterator[FileDescriptor]:
         return iter(self._by_position)
 
-    @typing.override
+    @override
     def destroy(self) -> None:
         """Release all file descriptors. This amounts to closing owned ones.
         Idempotent.

@@ -11,6 +11,7 @@ import unittest
 
 from asyncvarlink import (
     FileDescriptor,
+    override,
     TypedVarlinkErrorReply,
     VarlinkInterface,
     VarlinkInterfaceRegistry,
@@ -71,7 +72,7 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
 
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
-    @typing.override
+    @override
     def setUp(self) -> None:
         super().setUp()
         self.registry = VarlinkInterfaceRegistry()

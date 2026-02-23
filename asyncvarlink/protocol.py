@@ -19,6 +19,7 @@ from .types import (
     HasFileno,
     JSONObject,
     close_fileno,
+    override,
 )
 
 
@@ -105,12 +106,12 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._loop.call_soon(self._protocol.connection_made, self)
         self._loop.call_soon(self.resume_receiving)
 
-    @typing.override
+    @override
     def set_protocol(self, protocol: asyncio.BaseProtocol) -> None:
         assert isinstance(protocol, VarlinkBaseProtocol)
         self._protocol = protocol
 
-    @typing.override
+    @override
     def get_protocol(self) -> "VarlinkBaseProtocol":
         return self._protocol
 
@@ -310,13 +311,13 @@ class VarlinkTransport(asyncio.BaseTransport):
             if not self._sendqueue:
                 self._close_sender()
 
-    @typing.override
+    @override
     def close(self) -> None:
         if not self._closing:
             self._closing = True
             self._loop.call_soon(self._connection_lost)
 
-    @typing.override
+    @override
     def is_closing(self) -> bool:
         return self._closing
 
@@ -376,12 +377,12 @@ class VarlinkProtocol(VarlinkBaseProtocol):
         ] = collections.deque()
         self._transport: VarlinkTransport | None = None
 
-    @typing.override
+    @override
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         assert isinstance(transport, VarlinkTransport)
         self._transport = transport
 
-    @typing.override
+    @override
     def message_received(
         self, data: bytes, fds: FileDescriptorArray | None
     ) -> None:

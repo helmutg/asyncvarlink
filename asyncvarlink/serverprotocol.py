@@ -25,7 +25,7 @@ from .serviceerrors import (
     InvalidParameter,
     MethodNotFound,
 )
-from .types import FileDescriptorArray, JSONObject
+from .types import FileDescriptorArray, JSONObject, override
 
 
 _logger = logging.getLogger("asyncvarlink.serverprotocol")
@@ -161,7 +161,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
                 )
             )
 
-    @typing.override
+    @override
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:
@@ -219,7 +219,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
         super().__init__()
         self._registry = registry
 
-    @typing.override
+    @override
     def call_received(
         self, call: VarlinkMethodCall, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:

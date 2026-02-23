@@ -13,7 +13,7 @@ from .conversion import FileDescriptorVarlinkType
 from .interface import VarlinkInterface, varlinksignature
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
-from .types import FileDescriptorArray, JSONObject
+from .types import FileDescriptorArray, JSONObject, override
 from .util import completing_future
 
 
@@ -162,7 +162,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
             pending.consumer_done()
             await sendfut
 
-    @typing.override
+    @override
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None
     ) -> None:
@@ -172,7 +172,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
             pending = self._pending.popleft()
         pending.request_received(obj, fds)
 
-    @typing.override
+    @override
     def error_received(
         self,
         err: Exception,
@@ -181,7 +181,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
     ) -> None:
         self.connection_lost(err)
 
-    @typing.override
+    @override
     def connection_lost(self, exc: Exception | None) -> None:
         super().connection_lost(exc)
         if exc is None:
@@ -191,7 +191,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
             pending.connection_lost(exc)
         self.close()
 
-    @typing.override
+    @override
     def eof_received(self) -> None:
         super().eof_received()
         self.connection_lost(ConnectionResetError("remote closed connection"))

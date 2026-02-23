@@ -1,10 +1,9 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
-import typing
 import unittest
 
-from asyncvarlink import AnnotatedResult, VarlinkInterfaceRegistry
+from asyncvarlink import AnnotatedResult, VarlinkInterfaceRegistry, override
 from asyncvarlink.serviceinterface import (
     InterfaceNotFound,
     VarlinkServiceInterface,
@@ -12,7 +11,7 @@ from asyncvarlink.serviceinterface import (
 
 
 class TestServiceInterface(unittest.TestCase):
-    @typing.override
+    @override
     def setUp(self) -> None:
         self.reg = VarlinkInterfaceRegistry()
         self.vsi = VarlinkServiceInterface(

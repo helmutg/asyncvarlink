@@ -44,6 +44,7 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):
+    @typing.override
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         self.loop = asyncio.get_running_loop()
@@ -56,6 +57,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         )
         self.proxy = self.proto.make_proxy(DemoInterface)
 
+    @typing.override
     async def asyncTearDown(self) -> None:
         self.transport.close()
         await asyncio.sleep(0)
@@ -233,6 +235,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ClientPipeTests(unittest.IsolatedAsyncioTestCase):
+    @typing.override
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         self.loop = asyncio.get_running_loop()

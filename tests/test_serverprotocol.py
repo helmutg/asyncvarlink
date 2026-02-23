@@ -71,6 +71,7 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
 
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
+    @typing.override
     def setUp(self) -> None:
         super().setUp()
         self.registry = VarlinkInterfaceRegistry()

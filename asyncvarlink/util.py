@@ -99,18 +99,22 @@ class VarlinkUnixServer(asyncio.AbstractServer):
         self._serving: asyncio.Future[None] | None = None
         self._transports: weakref.WeakSet[VarlinkTransport] = weakref.WeakSet()
 
+    @typing.override
     def close(self) -> None:
         if self._serving is not None:
             self._loop.remove_reader(self._sock)
             self._serving.set_result(None)
             self._serving = None
 
+    @typing.override
     def get_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop
 
+    @typing.override
     def is_serving(self) -> bool:
         return self._serving is not None
 
+    @typing.override
     async def start_serving(self) -> None:
         if self._serving is None:
             self._serving = self._loop.create_future()
@@ -136,19 +140,23 @@ class VarlinkUnixServer(asyncio.AbstractServer):
             )
         )
 
+    @typing.override
     async def serve_forever(self) -> None:
         await self.start_serving()
         await self.wait_closed()
 
+    @typing.override
     async def wait_closed(self) -> None:
         if self._serving is None:
             return
         await self._serving
 
+    @typing.override
     def close_clients(self) -> None:
         for transport in self._transports.copy():
             transport.close()
 
+    @typing.override
     def abort_clients(self) -> None:
         for transport in self._transports.copy():
             transport.abort()

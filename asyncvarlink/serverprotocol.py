@@ -161,6 +161,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
                 )
             )
 
+    @typing.override
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:
@@ -218,6 +219,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
         super().__init__()
         self._registry = registry
 
+    @typing.override
     def call_received(
         self, call: VarlinkMethodCall, fds: FileDescriptorArray | None
     ) -> asyncio.Future[None] | None:

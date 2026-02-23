@@ -338,6 +338,7 @@ class FileDescriptorArray(FutureCounted):
     def __iter__(self) -> typing.Iterator[FileDescriptor]:
         return iter(self._by_position)
 
+    @typing.override
     def destroy(self) -> None:
         """Release all file descriptors. This amounts to closing owned ones.
         Idempotent.

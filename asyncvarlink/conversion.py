@@ -678,10 +678,6 @@ class FileDescriptorVarlinkType(VarlinkType):
                 "cannot unrepresent a file descriptor without oobstate"
             )
         fds = self._get_oob(oobstate)
-        if fds is None:
-            raise ConversionError(
-                f"attempt to convert invalid file descriptor index {obj}"
-            )
         if not isinstance(fds, FileDescriptorArray):
             raise ConversionError(
                 f"out-of-band state for {self.__class__.__name__} should be "

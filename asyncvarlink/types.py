@@ -13,7 +13,7 @@ import typing
 
 __all__ = [
     "FileDescriptor",
-    "FileDescriptor",
+    "FileDescriptorArray",
     "FutureCounted",
     "HasFileno",
     "JSONObject",

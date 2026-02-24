@@ -20,7 +20,8 @@ from asyncvarlink import (
     varlinkmethod,
 )
 from asyncvarlink.serviceinterface import (
-    PermissionDenied, VarlinkServiceInterface
+    PermissionDenied,
+    VarlinkServiceInterface,
 )
 
 

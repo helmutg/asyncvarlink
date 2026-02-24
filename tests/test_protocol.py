@@ -30,14 +30,21 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
     async def test_receive_socket(self) -> None:
         protocol = VarlinkBaseProtocol()
         protocol.message_received = Mock(return_value=None)
+        protocol.connection_lost = Mock(return_value=None)
         sock1, sock2 = socket.socketpair()
-        with contextlib.closing(sock1), contextlib.closing(sock2):
-            VarlinkTransport(
-                asyncio.get_running_loop(), sock1, sock1, protocol
-            )
-            sock2.send(b"hello")
-            await wait_called(protocol.message_received)
-        protocol.message_received.assert_called_once_with(b"hello", None)
+        with contextlib.closing(sock1):
+            with contextlib.closing(sock2):
+                transport = VarlinkTransport(
+                    asyncio.get_running_loop(), sock1, sock1, protocol
+                )
+                protocol.eof_received = transport.close
+                sock2.send(b"hello")
+                await wait_called(protocol.message_received)
+                protocol.message_received.assert_called_once_with(
+                    b"hello", None
+                )
+            await wait_called(protocol.connection_lost)
+            protocol.connection_lost.assert_called_once_with(None)
 
     async def test_receive_socket_eof(self) -> None:
         protocol = VarlinkBaseProtocol()

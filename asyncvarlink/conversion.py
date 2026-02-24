@@ -52,7 +52,7 @@ class ConversionError(Exception):
             raise
 
 
-OOBTypeState = dict[type["VarlinkType"], typing.Any] | None
+OOBTypeState = typing.Mapping[type["VarlinkType"], typing.Any] | None
 
 
 class VarlinkType:

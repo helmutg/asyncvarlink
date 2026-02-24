@@ -73,13 +73,13 @@ class VarlinkMethodCall:
         if not isinstance(more, bool):
             raise TypeError(
                 f"call property more must be bool, is "
-                f"{oneway.__class__.__name__}"
+                f"{more.__class__.__name__}"
             )
         upgrade = extensions.pop("upgrade", False)
         if not isinstance(upgrade, bool):
             raise TypeError(
                 f"call property upgrade must be bool, is "
-                f"{oneway.__class__.__name__}"
+                f"{upgrade.__class__.__name__}"
             )
         if sum((oneway, more, upgrade)) > 1:
             raise ValueError("cannot combine oneway, more or upgrade")

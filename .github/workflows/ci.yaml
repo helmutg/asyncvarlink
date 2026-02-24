@@ -11,7 +11,7 @@ jobs:
           python-version: '3.x'
       - name: Run black
         run: |
-          pip install black
+          pip install 'black >=25,<26'
           black --check --diff asyncvarlink
           black --check --diff tests
   codespell:

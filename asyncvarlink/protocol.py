@@ -1,7 +1,7 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
-"""asncio and protocol level varlink functionality."""
+"""asyncio and protocol level varlink functionality."""
 
 import asyncio
 import collections
@@ -491,7 +491,7 @@ class VarlinkProtocol(VarlinkBaseProtocol):
         autoclose: bool = True,
     ) -> asyncio.Future[None]:
         """Send a varlink request or response together with associated file
-        descriptors. The returned future is done once the message has actaullly
+        descriptors. The returned future is done once the message actually has
         been sent or terminally failed sending. In the latter case, the future
         raises an exception. If autoclose is True, the file descriptors are
         closed after transmission. Otherwise, the caller is responsible for

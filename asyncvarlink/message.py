@@ -66,7 +66,7 @@ class VarlinkMethodCall:
         oneway = extensions.pop("oneway", False)
         if not isinstance(oneway, bool):
             raise TypeError(
-                f"call property oneay must be bool, is "
+                f"call property oneway must be bool, is "
                 f"{oneway.__class__.__name__}"
             )
         more = extensions.pop("more", False)

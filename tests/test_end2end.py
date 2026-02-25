@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
 import contextlib
-import functools
 import tempfile
 import unittest
 
@@ -10,7 +9,6 @@ from asyncvarlink import (
     VarlinkClientProtocol,
     VarlinkInterface,
     VarlinkInterfaceRegistry,
-    VarlinkInterfaceServerProtocol,
     connect_unix_varlink,
     create_unix_server,
     varlinkmethod,

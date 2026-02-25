@@ -14,7 +14,6 @@ from asyncvarlink import (
     override,
     TypedVarlinkErrorReply,
     VarlinkClientProtocol,
-    VarlinkErrorReply,
     VarlinkInterface,
     VarlinkTransport,
     varlinkmethod,

@@ -29,6 +29,29 @@ _logger = logging.getLogger("asyncvarlink.protocol")
 _SENTINEL = object()
 
 
+class VarlinkBaseProtocol(asyncio.BaseProtocol):
+    """An asyncio protocol that provides the interface expected by
+    VarlinkTransport, but does not actually implement any of the wire protocol.
+    The typical data_received used by other streaming protocols is replaced
+    with message_received.
+    """
+
+    def message_received(
+        self, data: bytes, fds: FileDescriptorArray | None
+    ) -> None:
+        """Called when the transport received new data. The data can be
+        accompanied by open file descriptors. The caller will release the fds
+        array and all contained file descriptors that have not been taken
+        (FileDescriptorArray.take) once message_received returns None. Life
+        time of fds can be extended by adding a reference prior to returning.
+        """
+
+    def eof_received(self) -> None:
+        """Callback for signalling the end of messages on the receiving side.
+        The default implementation does nothing. Same as Protocol.eof_received.
+        """
+
+
 def _check_socket(thing: socket.socket | int | HasFileno) -> HasFileno:
     """Attempt to upgrade a file descriptor into a socket object if it happens
     to be a socket.
@@ -74,7 +97,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         loop: asyncio.AbstractEventLoop,
         recvfd: socket.socket | int | HasFileno,
         sendfd: socket.socket | int | HasFileno,
-        protocol: "VarlinkBaseProtocol",
+        protocol: VarlinkBaseProtocol,
         extra: typing.Mapping[str, typing.Any] | None = None,
     ):
         super().__init__(extra)
@@ -112,7 +135,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._protocol = protocol
 
     @override
-    def get_protocol(self) -> "VarlinkBaseProtocol":
+    def get_protocol(self) -> VarlinkBaseProtocol:
         return self._protocol
 
     def _close_receiver(self) -> None:
@@ -330,29 +353,6 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._fail_sendqueue()
         # Will soon call self._connection_lost, which immediately closes both
         # fds as the _sendqueue is now empty.
-
-
-class VarlinkBaseProtocol(asyncio.BaseProtocol):
-    """An asyncio protocol that provides the interface expected by
-    VarlinkTransport, but does not actually implement any of the wire protocol.
-    The typical data_received used by other streaming protocols is replaced
-    with message_received.
-    """
-
-    def message_received(
-        self, data: bytes, fds: FileDescriptorArray | None
-    ) -> None:
-        """Called when the transport received new data. The data can be
-        accompanied by open file descriptors. The caller will release the fds
-        array and all contained file descriptors that have not been taken
-        (FileDescriptorArray.take) once message_received returns None. Life
-        time of fds can be extended by adding a reference prior to returning.
-        """
-
-    def eof_received(self) -> None:
-        """Callback for signalling the end of messages on the receiving side.
-        The default implementation does nothing. Same as Protocol.eof_received.
-        """
 
 
 _JSONEncoder = json.JSONEncoder(separators=(",", ":"))

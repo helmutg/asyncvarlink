@@ -8,6 +8,7 @@ import os
 import socket
 import typing
 import unittest
+from unittest.mock import Mock
 
 from asyncvarlink import (
     FileDescriptor,
@@ -86,14 +87,10 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         sock1, sock2 = socket.socketpair(
             type=socket.SOCK_STREAM | socket.SOCK_NONBLOCK
         )
+        self.protocol = VarlinkInterfaceServerProtocol(self.registry)
         transport: VarlinkTransport | None = None
         try:
-            transport = VarlinkTransport(
-                loop,
-                sock2,
-                sock2,
-                VarlinkInterfaceServerProtocol(self.registry),
-            )
+            transport = VarlinkTransport(loop, sock2, sock2, self.protocol)
             yield (sock1, sock2)
         finally:
             if transport:
@@ -213,14 +210,14 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
     async def test_broken_pipe(self) -> None:
         loop = asyncio.get_running_loop()
         async with self.connected_server() as (sock1, sock2):
+            self.protocol.connection_lost = Mock(return_value=None)
             await loop.sock_sendall(
                 sock1, b'{"method":"com.example.demo.AsyncAnswer"}\0'
             )
             sock1.close()
-            self.assertGreaterEqual(sock2.fileno(), 0)
-            # A single sleep(0) does not seem to suffice here.
-            for _ in range(99):
-                if sock2.fileno() < 0:
+            for delay in range(100):
+                if self.protocol.connection_lost.called:
                     break
-                await asyncio.sleep(0)
+                await asyncio.sleep(0.01 * delay)
+            self.protocol.connection_lost.assert_called_once_with(None)
             self.assertLess(sock2.fileno(), 0)

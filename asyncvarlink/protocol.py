@@ -141,7 +141,9 @@ class VarlinkTransport(asyncio.BaseTransport):
     def _close_receiver(self) -> None:
         if self._recvfd is None:
             return
+        loose_connection = False
         if self._sendfd is None:
+            loose_connection = not self._closing
             self._closing = True
         if not self._paused:
             self._loop.remove_reader(self._recvfd)
@@ -151,6 +153,8 @@ class VarlinkTransport(asyncio.BaseTransport):
         ):
             close_fileno(self._recvfd)
         self._recvfd = None
+        if loose_connection:
+            self._loop.call_soon(self._connection_lost)
 
     def _handle_read_socket(self) -> None:
         assert isinstance(self._recvfd, socket.socket)
@@ -274,7 +278,9 @@ class VarlinkTransport(asyncio.BaseTransport):
         if self._sendfd is None:
             return
         self._loop.remove_writer(self._sendfd)
+        loose_connection = False
         if self._recvfd is None:
+            loose_connection = not self._closing
             self._closing = True
         if (
             self._recvfd is None
@@ -282,6 +288,8 @@ class VarlinkTransport(asyncio.BaseTransport):
         ):
             close_fileno(self._sendfd)
         self._sendfd = None
+        if loose_connection:
+            self._loop.call_soon(self._connection_lost)
 
     def _handle_write(self) -> None:
         assert self._sendfd is not None

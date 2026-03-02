@@ -54,13 +54,16 @@ def completing_future(
         future.exception()
 
 
+_P = typing.TypeVar("_P", bound=VarlinkBaseProtocol)
+
+
 async def connect_unix_varlink(
-    protocol_factory: typing.Callable[[], VarlinkBaseProtocol],
+    protocol_factory: typing.Callable[[], _P],
     path: os.PathLike[str] | str,
     *,
     loop: asyncio.AbstractEventLoop | None = None,
     inheritable: bool = False,
-) -> tuple[VarlinkTransport, VarlinkBaseProtocol]:
+) -> tuple[VarlinkTransport, _P]:
     """Connect to the unix domain socket at given path and return a varlink
     connection.
     """

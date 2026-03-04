@@ -216,7 +216,7 @@ class ConversionTests(unittest.TestCase):
             (float, ["fuzzy", 1 << 9999], ["fuzzy"]),
             (str, [42], [42]),
             (list[str], [2, [2]], [2, [2]]),
-            (set[str], [2, {1: {}}], [1, {1}]),
+            (set[str], [2, {"x": 1}], [1, {1}]),
             (dict[str, str], [2, {"x": 1}], [1, [("x", "y")], {1: 2}]),
             (
                 Coordinate,

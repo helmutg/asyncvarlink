@@ -237,6 +237,7 @@ class ConversionTests(unittest.TestCase):
             (typing.Literal["on", "off"], [2, "maybe"], [2, "maybe"]),
             (FileDescriptor, ["stdin", -1], ["stdin"]),
         ]:
+            oobstate: dict[type[VarlinkType], typing.Any]
             vt = VarlinkType.from_type_annotation(ta)
             for jval in jvals:
                 oobstate = {

@@ -167,7 +167,7 @@ class Coordinate(typing.TypedDict):
     y: float
 
 
-def close_all_fds(obj: typing.Any):
+def close_all_fds(obj: typing.Any) -> None:
     if isinstance(obj, FileDescriptor):
         obj.close()
     elif isinstance(obj, list):

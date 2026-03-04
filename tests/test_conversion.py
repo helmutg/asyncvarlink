@@ -210,7 +210,7 @@ class ConversionTests(unittest.TestCase):
             pass
 
     def test_invalid(self) -> None:
-        for ta, jvals, pvals in [
+        testcases: list[tuple[type, list[JSONValue], list[typing.Any]]] = [
             (bool, ["fuzzy"], ["fuzzy"]),
             (int, [2.5], [2.5]),
             (float, ["fuzzy", 1 << 9999], ["fuzzy"]),
@@ -236,7 +236,8 @@ class ConversionTests(unittest.TestCase):
             (TriState, [2, "well"], [2, "well"]),
             (typing.Literal["on", "off"], [2, "maybe"], [2, "maybe"]),
             (FileDescriptor, ["stdin", -1], ["stdin"]),
-        ]:
+        ]
+        for ta, jvals, pvals in testcases:
             oobstate: dict[type[VarlinkType], typing.Any]
             vt = VarlinkType.from_type_annotation(ta)
             for jval in jvals:

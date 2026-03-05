@@ -99,6 +99,24 @@ def _params_to_varlinkobj(
 
 @typing.overload
 def varlinkmethod(
+    function: typing.Callable[_P, typing.AsyncIterator[_R]],
+    *,
+    return_parameter: str | None = None,
+    delay_generator: bool = True,
+) -> typing.Callable[_P, typing.AsyncIterator[AnnotatedResult]]: ...
+
+
+@typing.overload
+def varlinkmethod(
+    function: typing.Callable[_P, typing.Iterator[_R]],
+    *,
+    return_parameter: str | None = None,
+    delay_generator: bool = True,
+) -> typing.Callable[_P, typing.Iterator[AnnotatedResult]]: ...
+
+
+@typing.overload
+def varlinkmethod(
     function: typing.Callable[_P, _R],
     *,
     return_parameter: str | None = None,

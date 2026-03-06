@@ -75,8 +75,9 @@ class LastResult(Exception):
 
 _MethodResultType = (
     AnnotatedResult
-    | typing.Iterable[AnnotatedResult]
-    | typing.AsyncIterable[AnnotatedResult]
+    | typing.Awaitable[AnnotatedResult]
+    | typing.Iterator[AnnotatedResult]
+    | typing.AsyncIterator[AnnotatedResult]
 )
 
 
@@ -95,6 +96,28 @@ def _params_to_varlinkobj(
             for name, tobj in params
         },
     )
+
+
+class _VarlinkMethodDecorator(typing.Protocol):
+    @typing.overload
+    def __call__(
+        self, function: typing.Callable[_P, typing.AsyncIterator[_R]]
+    ) -> typing.Callable[_P, typing.AsyncIterator[AnnotatedResult]]: ...
+
+    @typing.overload
+    def __call__(
+        self, function: typing.Callable[_P, typing.Iterator[_R]]
+    ) -> typing.Callable[_P, typing.Iterator[AnnotatedResult]]: ...
+
+    @typing.overload
+    def __call__(
+        self, function: typing.Callable[_P, typing.Awaitable[_R]]
+    ) -> typing.Callable[_P, typing.Awaitable[AnnotatedResult]]: ...
+
+    @typing.overload
+    def __call__(
+        self, function: typing.Callable[_P, _R]
+    ) -> typing.Callable[_P, _MethodResultType]: ...
 
 
 @typing.overload
@@ -117,6 +140,15 @@ def varlinkmethod(
 
 @typing.overload
 def varlinkmethod(
+    function: typing.Callable[_P, typing.Awaitable[_R]],
+    *,
+    return_parameter: str | None = None,
+    delay_generator: bool = True,
+) -> typing.Callable[_P, typing.Awaitable[AnnotatedResult]]: ...
+
+
+@typing.overload
+def varlinkmethod(
     function: typing.Callable[_P, _R],
     *,
     return_parameter: str | None = None,
@@ -127,9 +159,7 @@ def varlinkmethod(
 @typing.overload
 def varlinkmethod(
     *, return_parameter: str | None = None, delay_generator: bool = True
-) -> typing.Callable[
-    [typing.Callable[_P, _R]], typing.Callable[_P, _MethodResultType]
-]: ...
+) -> _VarlinkMethodDecorator: ...
 
 
 # Whilst the Python documentation says the implementation should be untyped,

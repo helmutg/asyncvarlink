@@ -108,6 +108,34 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                 sock2.close()
             sock1.close()
 
+    @contextlib.asynccontextmanager
+    async def piped_server(
+        self
+    ) -> collections.abc.AsyncIterator[tuple[FileDescriptor, FileDescriptor]]:
+        loop = asyncio.get_running_loop()
+        self.protocol = VarlinkInterfaceServerProtocol(self.registry)
+        pipe1r, pipe1w = FileDescriptor.make_pipe()
+        pipe2r, pipe2w = FileDescriptor.make_pipe()
+        # FileDescriptor makes close idempotent
+        with (
+            contextlib.closing(pipe1r),
+            contextlib.closing(pipe1w),
+            contextlib.closing(pipe2r),
+            contextlib.closing(pipe2w),
+        ):
+            transport: VarlinkTransport | None = None
+            try:
+                transport = VarlinkTransport(
+                    loop, pipe2r, pipe1w, self.protocol
+                )
+                yield (pipe1r, pipe2w)
+            finally:
+                if transport:
+                    transport.close()
+                    await asyncio.sleep(0)
+                    self.assertFalse(pipe2r)
+                    self.assertFalse(pipe1w)
+
     def sock_recv_fds(
         self, sock: socket.socket
     ) -> asyncio.Future[tuple[bytes, list[int]]]:
@@ -219,7 +247,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             b'{"error":"invalid.asyncvarlink.ProtocolViolation"}',
         )
 
-    async def test_broken_pipe(self) -> None:
+    async def test_broken_socket(self) -> None:
         loop = asyncio.get_running_loop()
         async with self.connected_server() as (sock1, sock2):
             self.protocol.connection_lost = Mock(return_value=None)
@@ -239,3 +267,41 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0.01 * delay)
             self.protocol.connection_lost.assert_called_once_with(None)
             self.assertLess(sock2.fileno(), 0)
+
+    async def test_pipe_closed(self) -> None:
+        loop = asyncio.get_running_loop()
+        async with self.piped_server() as (rpipe, wpipe):
+            self.protocol.connection_lost = Mock(return_value=None)
+            os.write(
+                wpipe.fileno(), b'{"method":"com.example.demo.FutureAnswer"}\0'
+            )
+            wpipe.close()
+            for _ in range(10):
+                await asyncio.sleep(0)
+            # Since the future is still pending, the write end is not being
+            # closed yet.
+            self.assertFalse(self.protocol.connection_lost.called)
+            self.fut.set_result(42)
+            data = await async_read_fd(rpipe.fileno(), 1024)
+            self.assertEqual(data, b'{"parameters":{"result":42}}\0')
+            for _ in range(10):
+                if self.protocol.connection_lost.called:
+                    break
+                await asyncio.sleep(0)
+            self.protocol.connection_lost.assert_called_once_with(None)
+
+    async def test_broken_pipe(self) -> None:
+        loop = asyncio.get_running_loop()
+        async with self.piped_server() as (rpipe, wpipe):
+            self.protocol.connection_lost = Mock(return_value=None)
+            rpipe.close()
+            os.write(
+                wpipe.fileno(), b'{"method":"com.example.demo.FutureAnswer"}\0'
+            )
+            wpipe.close()
+            self.fut.set_result(42)
+            for _ in range(20):
+                if self.protocol.connection_lost.called:
+                    break
+                await asyncio.sleep(0)
+            self.protocol.connection_lost.assert_called_once_with(None)

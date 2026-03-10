@@ -23,6 +23,8 @@ from asyncvarlink.serviceinterface import (
     VarlinkServiceInterface,
 )
 
+from helpers import async_read_fd
+
 
 class DemoFailure(TypedVarlinkErrorReply):
     name = "com.example.demo.DemoFailure"
@@ -212,18 +214,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(fut.done())
         rend, wend = os.pipe()
         self.addCleanup(os.close, rend)
-        read_fut = self.loop.create_future()
-
-        def _pipe_readable() -> None:
-            self.loop.remove_reader(rend)
-            try:
-                data = os.read(rend, 7)
-            except Exception as exc:
-                read_fut.set_exception(exc)
-            else:
-                read_fut.set_result(data)
-
-        self.loop.add_reader(rend, _pipe_readable)
+        read_fut = async_read_fd(rend, 7)
         await self.send_data(b'{"parameters":{"fd":0}}\0', [wend])
         with await fut as ret:
             wfd = ret["fd"].take()
@@ -251,11 +242,7 @@ class ClientPipeTests(unittest.IsolatedAsyncioTestCase):
         self.proxy = self.proto.make_proxy(DemoInterface)
 
     async def expect_data(self, expected: bytes) -> None:
-        fut = self.loop.create_future()
-        self.loop.add_reader(self.pipers, fut.set_result, None)
-        await fut
-        self.loop.remove_reader(self.pipers)
-        data = os.read(self.pipers, len(expected) + 1)
+        data = await async_read_fd(self.pipers, len(expected) + 1)
         self.assertEqual(data, expected)
 
     async def test_broken_pipe_send(self) -> None:

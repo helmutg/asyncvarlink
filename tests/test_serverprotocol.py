@@ -21,6 +21,8 @@ from asyncvarlink import (
     varlinkmethod,
 )
 
+from helpers import async_read_fd
+
 
 class DemoError(TypedVarlinkErrorReply, interface="com.example.demo"):
     class Parameters:
@@ -200,9 +202,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                     data, fds = await self.sock_recv_fds(sock1)
                     self.assertEqual(data, b'{"parameters":{"fd":0}}\0')
                     self.assertEqual(len(fds), 1)
-                    # We should not do a synchronous read in async code, but
-                    # this should be immediate.
-                    data = os.read(fds[0], 1024)
+                    data = await async_read_fd(fds[0], 1024)
                     os.close(fds[0])
                     self.assertEqual(data, b"needle")
 

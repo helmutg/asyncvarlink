@@ -41,8 +41,8 @@ the methods need to be implemented of course, but on the client side, typed
 stubs will do.
 
     import asyncio
+    import collections.abc
     import enum
-    import typing
     from asyncvarlink import VarlinkInterface, varlinkmethod
 
     class Direction(enum.Enum):
@@ -55,7 +55,7 @@ stubs will do.
             return Direction.left if value == Direction.right else Direction.right
 
         @varlinkmethod(return_parameter="value")
-        def Range(self, *, count: int) -> typing.Iterable[int]:
+        def Range(self, *, count: int) -> collections.abc.Iterable[int]:
             return range(count)
 
         @varlinkmethod

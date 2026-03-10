@@ -5,6 +5,7 @@
 
 import asyncio
 import collections
+import collections.abc
 import errno
 import functools
 import json
@@ -98,7 +99,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         recvfd: socket.socket | int | HasFileno,
         sendfd: socket.socket | int | HasFileno,
         protocol: VarlinkBaseProtocol,
-        extra: typing.Mapping[str, typing.Any] | None = None,
+        extra: collections.abc.Mapping[str, typing.Any] | None = None,
     ):
         super().__init__(extra)
         self._loop = loop
@@ -376,7 +377,7 @@ class VarlinkProtocol(VarlinkBaseProtocol):
         self._consumer_queue: collections.deque[
             tuple[
                 # A closure for invoking the next consumer
-                typing.Callable[[], asyncio.Future[None] | None],
+                collections.abc.Callable[[], asyncio.Future[None] | None],
                 # An optional future that should be notified when the consumer
                 # is done consuming (i.e. the future it returned is completed
                 # or it returned None or raised an exception).
@@ -408,7 +409,7 @@ class VarlinkProtocol(VarlinkBaseProtocol):
             if fds:
                 fut = loop.create_future()
                 fds.reference_until_done(fut)
-            call: typing.Callable[[], asyncio.Future[None] | None]
+            call: collections.abc.Callable[[], asyncio.Future[None] | None]
             try:
                 obj = json.loads(reqdata)
             except json.decoder.JSONDecodeError as err:

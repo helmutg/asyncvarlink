@@ -4,6 +4,7 @@
 """Utility functions that don't fit well elsewhere."""
 
 import asyncio
+import collections.abc
 import contextlib
 import os
 import socket
@@ -19,19 +20,21 @@ _T = typing.TypeVar("_T")
 
 
 @typing.overload
-def completing_future() -> typing.ContextManager[asyncio.Future[None]]: ...
+def completing_future() -> (
+    contextlib.AbstractContextManager[asyncio.Future[None]]
+): ...
 
 
 @typing.overload
 def completing_future(
     value: _T,
-) -> typing.ContextManager[asyncio.Future[_T]]: ...
+) -> contextlib.AbstractContextManager[asyncio.Future[_T]]: ...
 
 
 @contextlib.contextmanager
 def completing_future(
     value: typing.Any = None,
-) -> typing.Iterator[asyncio.Future[typing.Any]]:
+) -> collections.abc.Iterator[asyncio.Future[typing.Any]]:
     """A context manager that returns a new asyncio.Future which will be done
     with the passed value on context exit unless the context exits with an
     exception in which case the future also raises the exception. Even though
@@ -58,7 +61,7 @@ _P = typing.TypeVar("_P", bound=VarlinkBaseProtocol)
 
 
 async def connect_unix_varlink(
-    protocol_factory: typing.Callable[[], _P],
+    protocol_factory: collections.abc.Callable[[], _P],
     path: os.PathLike[str] | str,
     *,
     loop: asyncio.AbstractEventLoop | None = None,
@@ -92,7 +95,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
     def __init__(
         self,
         sock: socket.socket,
-        protocol_factory: typing.Callable[[], VarlinkBaseProtocol],
+        protocol_factory: collections.abc.Callable[[], VarlinkBaseProtocol],
         *,
         loop: asyncio.AbstractEventLoop | None = None,
     ):
@@ -166,7 +169,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
 
 
 async def create_unix_server(
-    protocol_factory: typing.Callable[[], VarlinkBaseProtocol],
+    protocol_factory: collections.abc.Callable[[], VarlinkBaseProtocol],
     path: os.PathLike[str] | str | None = None,
     *,
     loop: asyncio.AbstractEventLoop | None = None,
@@ -212,7 +215,7 @@ async def create_unix_server(
     return server
 
 
-def get_listen_fd(name: str) -> typing.Optional[FileDescriptor]:
+def get_listen_fd(name: str) -> FileDescriptor | None:
     """Obtain a file descriptor using the systemd socket activation
     protocol.
     """

@@ -1,6 +1,7 @@
 # Copyright 2024 Helmut Grohne <helmut@subdivi.de>
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
+import collections.abc
 import typing
 import unittest
 
@@ -60,7 +61,7 @@ class TestInterface(unittest.TestCase):
                 raise ExpectedError()
 
             @varlinkmethod
-            def gen(self) -> typing.Iterator[ResultWrapper]:
+            def gen(self) -> collections.abc.Iterator[ResultWrapper]:
                 self.gen_state = 0
                 yield AnnotatedResult(res("gen0"), continues=True)
                 self.gen_state = 1
@@ -70,14 +71,14 @@ class TestInterface(unittest.TestCase):
                 self.gen_state = 3
 
             @varlinkmethod(return_parameter="result")
-            def gen_raise(self) -> typing.Iterator[str]:
+            def gen_raise(self) -> collections.abc.Iterator[str]:
                 self.genr_state = 0
                 yield "genr0"
                 self.genr_state = 1
                 raise LastResult("genr1")
 
             @varlinkmethod(delay_generator=False, return_parameter="result")
-            def gen_immediate(self) -> typing.Iterator[str]:
+            def gen_immediate(self) -> collections.abc.Iterator[str]:
                 self.geni_state = 0
                 yield AnnotatedResult(res("geni0"), continues=True)
                 self.geni_state = 1
@@ -86,7 +87,7 @@ class TestInterface(unittest.TestCase):
                 raise LastResult("geni2")
 
             @varlinkmethod(return_parameter="result")
-            def gen_error(self) -> typing.Iterator[str]:
+            def gen_error(self) -> collections.abc.Iterator[str]:
                 self.gene_state = 0
                 yield "gene0"
                 self.gene_state = 1
@@ -181,7 +182,9 @@ class TestAsyncInterface(unittest.IsolatedAsyncioTestCase):
                 return AnnotatedResult(res("annotated_named"))
 
             @varlinkmethod
-            async def gen(self) -> typing.AsyncIterator[ResultWrapper]:
+            async def gen(
+                self,
+            ) -> collections.abc.AsyncIterator[ResultWrapper]:
                 self.gen_state = 0
                 yield AnnotatedResult(res("gen0"), continues=True)
                 self.gen_state = 1
@@ -191,14 +194,16 @@ class TestAsyncInterface(unittest.IsolatedAsyncioTestCase):
                 self.gen_state = 3
 
             @varlinkmethod(return_parameter="result")
-            async def gen_raise(self) -> typing.AsyncIterator[str]:
+            async def gen_raise(self) -> collections.abc.AsyncIterator[str]:
                 self.genr_state = 0
                 yield "genr0"
                 self.genr_state = 1
                 raise LastResult("genr1")
 
             @varlinkmethod(delay_generator=False, return_parameter="result")
-            async def gen_immediate(self) -> typing.AsyncIterator[str]:
+            async def gen_immediate(
+                self,
+            ) -> collections.abc.AsyncIterator[str]:
                 self.geni_state = 0
                 yield AnnotatedResult(res("geni0"), continues=True)
                 self.geni_state = 1

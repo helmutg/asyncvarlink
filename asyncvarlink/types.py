@@ -4,6 +4,7 @@
 """Basic type definitions."""
 
 import asyncio
+import collections.abc
 import contextlib
 import logging
 import os
@@ -254,7 +255,7 @@ class FutureCounted:
 
     @classmethod
     @contextlib.contextmanager
-    def new_managed(cls) -> typing.Iterator[typing.Self]:
+    def new_managed(cls) -> collections.abc.Iterator[typing.Self]:
         """Create a managed object whose lifetime is managed in a context
         manager.
         """
@@ -313,7 +314,7 @@ class FileDescriptorArray(FutureCounted):
     def __init__(
         self,
         initial_referee: typing.Any,
-        fds: typing.Iterable[HasFileno | int | None] | None = None,
+        fds: collections.abc.Iterable[HasFileno | int | None] | None = None,
     ):
         """Construct a FileDescriptorArray. The initial_referee is passed to
         the FutureCounted constructor. The fds iterable must not contain any
@@ -373,7 +374,7 @@ class FileDescriptorArray(FutureCounted):
     def __getitem__(self, index: int) -> FileDescriptor:
         return self._by_position[index]
 
-    def __iter__(self) -> typing.Iterator[FileDescriptor]:
+    def __iter__(self) -> collections.abc.Iterator[FileDescriptor]:
         return iter(self._by_position)
 
     @override

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
 import asyncio
+import collections.abc
 import contextlib
 import json
 import os
@@ -47,17 +48,17 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         return await self.fut
 
     @varlinkmethod(return_parameter="result")
-    def SyncMore(self) -> typing.Iterator[int]:
+    def SyncMore(self) -> collections.abc.Iterator[int]:
         yield 1
         yield 2
 
     @varlinkmethod(return_parameter="result")
-    def SyncMoreError(self) -> typing.Iterator[int]:
+    def SyncMoreError(self) -> collections.abc.Iterator[int]:
         yield 1
         raise DemoError()
 
     @varlinkmethod(return_parameter="result")
-    async def AsyncMore(self) -> typing.AsyncIterator[int]:
+    async def AsyncMore(self) -> collections.abc.AsyncIterator[int]:
         yield 1
         yield 2
 
@@ -88,7 +89,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
     @contextlib.asynccontextmanager
     async def connected_server(
         self,
-    ) -> typing.AsyncIterator[tuple[socket.socket, socket.socket]]:
+    ) -> collections.abc.AsyncIterator[tuple[socket.socket, socket.socket]]:
         loop = asyncio.get_running_loop()
         sock1, sock2 = socket.socketpair(
             type=socket.SOCK_STREAM | socket.SOCK_NONBLOCK

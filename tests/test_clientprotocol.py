@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.0-or-later
 
 import asyncio
+import collections.abc
 import json
 import os
 import socket
-import typing
 import unittest
 
 from asyncvarlink import (
@@ -40,7 +40,7 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
     def Method(self, argument: str) -> str: ...
 
     @varlinkmethod(return_parameter="result")
-    def MoreMethod(self) -> typing.Iterator[str]: ...
+    def MoreMethod(self) -> collections.abc.Iterator[str]: ...
 
     @varlinkmethod(return_parameter="fd")
     def CreateFd(self) -> FileDescriptor: ...

@@ -48,8 +48,8 @@ Let's go through the following example.
 .. code-block:: python
 
    import asyncio
+   import collections.abc
    import enum
-   import typing
    from asyncvarlink import VarlinkInterface, varlinkmethod
 
    class Direction(enum.Enum):
@@ -62,7 +62,7 @@ Let's go through the following example.
            return Direction.left if value == Direction.right else Direction.right
 
        @varlinkmethod(return_parameter="value")
-       def Range(self, *, count: int) -> typing.Iterable[int]:
+       def Range(self, *, count: int) -> collections.abc.Iterable[int]:
            return range(count)
 
        @varlinkmethod

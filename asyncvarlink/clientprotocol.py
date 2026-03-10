@@ -5,6 +5,7 @@
 
 import asyncio
 import collections
+import collections.abc
 import contextlib
 import functools
 import typing
@@ -134,7 +135,7 @@ class VarlinkClientProtocol(VarlinkProtocol):
 
     async def call_more(
         self, call: VarlinkMethodCall, fds: list[int] | None = None
-    ) -> typing.AsyncGenerator[_CallResult, None]:
+    ) -> collections.abc.AsyncGenerator[_CallResult, None]:
         """Issue a varlink call expecting multiple replies. If the call does
         not set the more attribute, the call method must be used instead. The
         given fds (if any) must remain available until the method returns and
@@ -214,7 +215,9 @@ class _ResourceManager:
     cleanup function on exit.
     """
 
-    def __init__(self, result: typing.Any, close: typing.Callable[[], None]):
+    def __init__(
+        self, result: typing.Any, close: collections.abc.Callable[[], None]
+    ):
         self._result = result
         self._close = close
 
@@ -268,7 +271,7 @@ class VarlinkInterfaceProxy:
 
             async def proxy_call_more(
                 **kwargs: typing.Any,
-            ) -> typing.AsyncGenerator[typing.Any, None]:
+            ) -> collections.abc.AsyncGenerator[typing.Any, None]:
                 with FileDescriptorArray.new_managed() as pfds:
                     # This may raise a ConversionError.
                     parameters = signature.parameter_type.tojson(

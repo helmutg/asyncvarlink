@@ -4,6 +4,7 @@
 """asyncio varlink server protocol implementation"""
 
 import asyncio
+import collections.abc
 import functools
 import logging
 import os
@@ -49,7 +50,9 @@ class VarlinkInterfaceRegistry:
 
     def lookup_method(
         self, call: VarlinkMethodCall
-    ) -> tuple[typing.Callable[..., typing.Any], VarlinkMethodSignature]:
+    ) -> tuple[
+        collections.abc.Callable[..., typing.Any], VarlinkMethodSignature
+    ]:
         """Look up a method. Return the Python callable responsible for the
         method referenced by the call and its VarlinkMethodSignature used
         for introspection and type conversion. This raises a number of
@@ -70,7 +73,7 @@ class VarlinkInterfaceRegistry:
             raise ExpectedMore()
         return (method, signature)
 
-    def __iter__(self) -> typing.Iterator[VarlinkInterface]:
+    def __iter__(self) -> collections.abc.Iterator[VarlinkInterface]:
         """Iterate over the registered VarlinkInterface instances."""
         return iter(self.interfaces.values())
 
@@ -256,7 +259,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
 
     def _call_sync_method_single(
         self,
-        method: typing.Callable[..., typing.Any],
+        method: collections.abc.Callable[..., typing.Any],
         signature: VarlinkMethodSignature,
         pyparams: dict[str, typing.Any],
         oneway: bool,
@@ -280,7 +283,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
 
     async def _call_sync_method_more(
         self,
-        method: typing.Callable[..., typing.Any],
+        method: collections.abc.Callable[..., typing.Any],
         signature: VarlinkMethodSignature,
         pyparams: dict[str, typing.Any],
     ) -> None:
@@ -316,7 +319,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
 
     async def _call_async_method_single(
         self,
-        method: typing.Callable[..., typing.Any],
+        method: collections.abc.Callable[..., typing.Any],
         signature: VarlinkMethodSignature,
         pyparams: dict[str, typing.Any],
         oneway: bool,
@@ -345,7 +348,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
 
     async def _call_async_method_more(
         self,
-        method: typing.Callable[..., typing.Any],
+        method: collections.abc.Callable[..., typing.Any],
         signature: VarlinkMethodSignature,
         pyparams: dict[str, typing.Any],
     ) -> None:

@@ -3,6 +3,7 @@
 
 """Helper for converting between Python objects and JSONValues."""
 
+import collections.abc
 import contextlib
 import dataclasses
 import enum
@@ -41,7 +42,7 @@ class ConversionError(Exception):
 
     @classmethod
     @contextlib.contextmanager
-    def context(cls, where: str | int) -> typing.Iterator[None]:
+    def context(cls, where: str | int) -> collections.abc.Iterator[None]:
         """If a ConversionError passes through this context manager, push the
         location where onto the location stack as it passes through.
         """
@@ -52,7 +53,7 @@ class ConversionError(Exception):
             raise
 
 
-OOBTypeState = typing.Mapping[type["VarlinkType"], typing.Any] | None
+OOBTypeState = collections.abc.Mapping[type["VarlinkType"], typing.Any] | None
 
 
 class VarlinkType:

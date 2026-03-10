@@ -3,6 +3,7 @@
 
 """Model a varlink interface method and its type."""
 
+import collections.abc
 import dataclasses
 import functools
 import inspect
@@ -45,7 +46,7 @@ class AnnotatedResult:
     details.
     """
 
-    parameters: typing.Mapping[str, typing.Any]
+    parameters: collections.abc.Mapping[str, typing.Any]
     """Parameter mapping that would normally returned without this wrapper."""
 
     _: dataclasses.KW_ONLY
@@ -75,14 +76,14 @@ class LastResult(Exception):
 
 _MethodResultType = (
     AnnotatedResult
-    | typing.Awaitable[AnnotatedResult]
-    | typing.Iterator[AnnotatedResult]
-    | typing.AsyncIterator[AnnotatedResult]
+    | collections.abc.Awaitable[AnnotatedResult]
+    | collections.abc.Iterator[AnnotatedResult]
+    | collections.abc.AsyncIterator[AnnotatedResult]
 )
 
 
 def _params_to_varlinkobj(
-    params: typing.Iterator[tuple[str, inspect.Parameter]],
+    params: collections.abc.Iterator[tuple[str, inspect.Parameter]],
 ) -> ObjectVarlinkType:
     return ObjectVarlinkType(
         {
@@ -101,59 +102,76 @@ def _params_to_varlinkobj(
 class _VarlinkMethodDecorator(typing.Protocol):
     @typing.overload
     def __call__(
-        self, function: typing.Callable[_P, typing.AsyncIterator[_R]]
-    ) -> typing.Callable[_P, typing.AsyncIterator[AnnotatedResult]]: ...
+        self,
+        function: collections.abc.Callable[
+            _P, collections.abc.AsyncIterator[_R]
+        ],
+    ) -> collections.abc.Callable[
+        _P, collections.abc.AsyncIterator[AnnotatedResult]
+    ]: ...
 
     @typing.overload
     def __call__(
-        self, function: typing.Callable[_P, typing.Iterator[_R]]
-    ) -> typing.Callable[_P, typing.Iterator[AnnotatedResult]]: ...
+        self,
+        function: collections.abc.Callable[_P, collections.abc.Iterator[_R]],
+    ) -> collections.abc.Callable[
+        _P, collections.abc.Iterator[AnnotatedResult]
+    ]: ...
 
     @typing.overload
     def __call__(
-        self, function: typing.Callable[_P, typing.Awaitable[_R]]
-    ) -> typing.Callable[_P, typing.Awaitable[AnnotatedResult]]: ...
+        self,
+        function: collections.abc.Callable[_P, collections.abc.Awaitable[_R]],
+    ) -> collections.abc.Callable[
+        _P, collections.abc.Awaitable[AnnotatedResult]
+    ]: ...
 
     @typing.overload
     def __call__(
-        self, function: typing.Callable[_P, _R]
-    ) -> typing.Callable[_P, _MethodResultType]: ...
+        self, function: collections.abc.Callable[_P, _R]
+    ) -> collections.abc.Callable[_P, _MethodResultType]: ...
 
 
 @typing.overload
 def varlinkmethod(
-    function: typing.Callable[_P, typing.AsyncIterator[_R]],
+    function: collections.abc.Callable[_P, collections.abc.AsyncIterator[_R]],
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
-) -> typing.Callable[_P, typing.AsyncIterator[AnnotatedResult]]: ...
+) -> collections.abc.Callable[
+    _P, collections.abc.AsyncIterator[AnnotatedResult]
+]: ...
 
 
 @typing.overload
 def varlinkmethod(
-    function: typing.Callable[_P, typing.Iterator[_R]],
+    function: collections.abc.Callable[_P, collections.abc.Iterator[_R]],
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
-) -> typing.Callable[_P, typing.Iterator[AnnotatedResult]]: ...
+) -> collections.abc.Callable[
+    _P, collections.abc.Iterator[AnnotatedResult]
+]: ...
 
 
 @typing.overload
 def varlinkmethod(
-    function: typing.Callable[_P, typing.Awaitable[_R]],
+    function: collections.abc.Callable[_P, collections.abc.Awaitable[_R]],
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
-) -> typing.Callable[_P, typing.Awaitable[AnnotatedResult]]: ...
+) -> collections.abc.Callable[
+    _P, collections.abc.Awaitable[AnnotatedResult]
+]: ...
 
 
 @typing.overload
 def varlinkmethod(
-    function: typing.Callable[_P, _R],
+    function: collections.abc.Callable[_P, _R],
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
-) -> typing.Callable[_P, _MethodResultType]: ...
+) -> collections.abc.Callable[_P, _MethodResultType]: ...
 
 
 @typing.overload
@@ -166,16 +184,16 @@ def varlinkmethod(
 # mypy insists on having a type to type check the body of the function.
 # https://github.com/python/mypy/issues/3360
 def varlinkmethod(
-    function: typing.Callable[_P, _R] | None = None,
+    function: collections.abc.Callable[_P, _R] | None = None,
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
 ) -> (
-    typing.Callable[
-        [typing.Callable[_P, _R]],
-        typing.Callable[_P, _MethodResultType],
+    collections.abc.Callable[
+        [collections.abc.Callable[_P, _R]],
+        collections.abc.Callable[_P, _MethodResultType],
     ]
-    | typing.Callable[_P, _MethodResultType]
+    | collections.abc.Callable[_P, _MethodResultType]
 ):
     """Decorator for fully type annotated methods to be callable from varlink.
     The function may be a generator, in which case it should be called
@@ -199,8 +217,8 @@ def varlinkmethod(
     """
 
     def wrap(
-        function: typing.Callable[_P, _R],
-    ) -> typing.Callable[_P, AnnotatedResult]:
+        function: collections.abc.Callable[_P, _R],
+    ) -> collections.abc.Callable[_P, AnnotatedResult]:
         asynchronous = inspect.iscoroutinefunction(function)
         asyncgen = inspect.isasyncgenfunction(function)
         signature = inspect.signature(function)
@@ -214,12 +232,16 @@ def varlinkmethod(
         ret_origin = typing.get_origin(return_type)
         if ret_origin is not None and issubclass(
             ret_origin,
-            typing.AsyncIterator if asyncgen else typing.Iterator,
+            (
+                collections.abc.AsyncIterator
+                if asyncgen
+                else collections.abc.Iterator
+            ),
         ):
             return_type = typing.get_args(return_type)[0]
             more = True
         return_vtype = VarlinkType.from_type_annotation(return_type)
-        make_result: typing.Callable[[_R], AnnotatedResult]
+        make_result: collections.abc.Callable[[_R], AnnotatedResult]
         if return_parameter is not None:
             return_vtype = ObjectVarlinkType({return_parameter: return_vtype})
 
@@ -237,7 +259,8 @@ def varlinkmethod(
         else:
             # mypy cannot figure out that a type also is a Callable.
             make_result = typing.cast(
-                typing.Callable[[_R], AnnotatedResult], AnnotatedResult
+                collections.abc.Callable[[_R], AnnotatedResult],
+                AnnotatedResult,
             )
 
         vlsig = VarlinkMethodSignature(
@@ -246,10 +269,13 @@ def varlinkmethod(
             _params_to_varlinkobj(param_iterator),
             return_vtype,
         )
-        wrapped: typing.Callable[_P, typing.Any]
+        wrapped: collections.abc.Callable[_P, typing.Any]
         if more and asyncgen:
             asynciterfunction = typing.cast(
-                typing.Callable[_P, typing.AsyncIterable[_R]], function
+                collections.abc.Callable[
+                    _P, collections.abc.AsyncIterable[_R]
+                ],
+                function,
             )
 
             if delay_generator:
@@ -257,7 +283,7 @@ def varlinkmethod(
                 @functools.wraps(function)
                 async def wrapped(
                     *args: _P.args, **kwargs: _P.kwargs
-                ) -> typing.AsyncGenerator[AnnotatedResult, None]:
+                ) -> collections.abc.AsyncGenerator[AnnotatedResult, None]:
                     pending = None
                     try:
                         async for result in asynciterfunction(*args, **kwargs):
@@ -291,7 +317,7 @@ def varlinkmethod(
                 @functools.wraps(function)
                 async def wrapped(
                     *args: _P.args, **kwargs: _P.kwargs
-                ) -> typing.AsyncGenerator[AnnotatedResult, None]:
+                ) -> collections.abc.AsyncGenerator[AnnotatedResult, None]:
                     try:
                         async for result in asynciterfunction(*args, **kwargs):
                             if isinstance(result, AnnotatedResult):
@@ -308,7 +334,8 @@ def varlinkmethod(
 
         elif more:
             iterfunction = typing.cast(
-                typing.Callable[_P, typing.Iterable[_R]], function
+                collections.abc.Callable[_P, collections.abc.Iterable[_R]],
+                function,
             )
 
             if delay_generator:
@@ -316,7 +343,7 @@ def varlinkmethod(
                 @functools.wraps(function)
                 def wrapped(
                     *args: _P.args, **kwargs: _P.kwargs
-                ) -> typing.Generator[AnnotatedResult, None, None]:
+                ) -> collections.abc.Generator[AnnotatedResult, None, None]:
                     pending = None
                     try:
                         for result in iterfunction(*args, **kwargs):
@@ -350,7 +377,7 @@ def varlinkmethod(
                 @functools.wraps(function)
                 def wrapped(
                     *args: _P.args, **kwargs: _P.kwargs
-                ) -> typing.Generator[AnnotatedResult, None, None]:
+                ) -> collections.abc.Generator[AnnotatedResult, None, None]:
                     try:
                         for result in iterfunction(*args, **kwargs):
                             if isinstance(result, AnnotatedResult):
@@ -367,7 +394,8 @@ def varlinkmethod(
 
         elif asynchronous:
             asyncfunction = typing.cast(
-                typing.Callable[_P, typing.Awaitable[_R]], function
+                collections.abc.Callable[_P, collections.abc.Awaitable[_R]],
+                function,
             )
 
             @functools.wraps(function)
@@ -408,7 +436,7 @@ def varlinkmethod(
 
 
 def varlinksignature(
-    method: typing.Callable[_P, _R],
+    method: collections.abc.Callable[_P, _R],
 ) -> VarlinkMethodSignature | None:
     """Return the signature object constructed by the varlinkmethod decorator
     if the given method has been decorated.
@@ -427,7 +455,7 @@ class VarlinkInterface:
     name: str
     """The name of the varlink interface in dotted reverse domain notation."""
 
-    errors: typing.Sequence[type[TypedVarlinkErrorReply]] = ()
+    errors: collections.abc.Sequence[type[TypedVarlinkErrorReply]] = ()
     """Optionally, an interface may list the possible errors that may be
     returned.
 

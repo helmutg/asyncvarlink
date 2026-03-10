@@ -448,6 +448,12 @@ class VarlinkProtocol(VarlinkBaseProtocol):
         consume, notify = self._consumer_queue.popleft()
         try:
             fut = consume()
+        except Exception as exception:
+            _logger.error(
+                "unhandled exception from request_received or error_received",
+                exc_info=exception,
+            )
+            raise
         finally:
             if notify is not None:
                 notify.set_result(None)

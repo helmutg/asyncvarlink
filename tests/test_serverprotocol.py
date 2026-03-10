@@ -28,6 +28,10 @@ class DemoError(TypedVarlinkErrorReply, interface="com.example.demo"):
 
 
 class DemoInterface(VarlinkInterface, name="com.example.demo"):
+    def __init__(self, fut: asyncio.Future[int]):
+        super().__init__()
+        self.fut = fut
+
     @varlinkmethod(return_parameter="result")
     def Answer(self) -> int:
         return 42
@@ -37,9 +41,8 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         raise DemoError()
 
     @varlinkmethod(return_parameter="result")
-    async def AsyncAnswer(self) -> int:
-        await asyncio.sleep(0)
-        return 42
+    async def FutureAnswer(self) -> int:
+        return await self.fut
 
     @varlinkmethod(return_parameter="result")
     def SyncMore(self) -> typing.Iterator[int]:
@@ -74,10 +77,11 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
     @override
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.registry = VarlinkInterfaceRegistry()
-        self.registry.register_interface(DemoInterface())
+        self.fut = asyncio.get_running_loop().create_future()
+        self.registry.register_interface(DemoInterface(self.fut))
 
     @contextlib.asynccontextmanager
     async def connected_server(
@@ -177,8 +181,9 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_async(self) -> None:
+        self.fut.set_result(42)
         await self.invoke(
-            b'{"method":"com.example.demo.AsyncAnswer"}',
+            b'{"method":"com.example.demo.FutureAnswer"}',
             b'{"parameters":{"result":42}}',
         )
 
@@ -212,9 +217,15 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         async with self.connected_server() as (sock1, sock2):
             self.protocol.connection_lost = Mock(return_value=None)
             await loop.sock_sendall(
-                sock1, b'{"method":"com.example.demo.AsyncAnswer"}\0'
+                sock1, b'{"method":"com.example.demo.FutureAnswer"}\0'
             )
             sock1.close()
+            for _ in range(10):
+                await asyncio.sleep(0)
+            # Since the future is still pending, the write end is not being
+            # closed yet.
+            self.assertFalse(self.protocol.connection_lost.called)
+            self.fut.set_result(42)
             for delay in range(100):
                 if self.protocol.connection_lost.called:
                     break

@@ -96,6 +96,30 @@ class VarlinkServerProtocol(VarlinkProtocol):
     VarlinkErrorReply objects. A derived class should implement call_received.
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._inflight: set[asyncio.Future[None]] = set()
+        self._closing = False
+
+    def _maybe_close_if_idle(self) -> None:
+        if self._closing:
+            while self._inflight:
+                fut = next(iter(self._inflight))
+                if not fut.done():
+                    return
+                self._inflight.remove(fut)
+            self.close()
+            self._closing = False
+
+    def _on_transfer_done(self, fut: asyncio.Future[None]) -> None:
+        assert fut.done()
+        self._inflight.discard(fut)
+        self._maybe_close_if_idle()
+
+    def _add_transfer(self, fut: asyncio.Future[None]) -> None:
+        self._inflight.add(fut)
+        fut.add_done_callback(self._on_transfer_done)
+
     def _on_message_sent(self, fut: asyncio.Future[None]) -> None:
         assert fut.done()
         exc = fut.exception()
@@ -124,6 +148,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
             fds = []
         fut = self.send_message(json, fds, autoclose)
         fut.add_done_callback(self._on_message_sent)
+        self._add_transfer(fut)
         return fut
 
     def _on_receiver_completes(
@@ -132,6 +157,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
         oneway: bool,
         call_fut: asyncio.Future[None],
     ) -> None:
+        assert call_fut.done()
         exc = call_fut.exception()
         if exc is not None:
             if isinstance(exc, VarlinkErrorReply):
@@ -184,6 +210,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
                     self._on_receiver_completes, bpfut, call.oneway
                 ),
             )
+            self._add_transfer(fut)
             return bpfut
         except VarlinkErrorReply as err:
             if not obj.get("oneway", False):
@@ -199,6 +226,17 @@ class VarlinkServerProtocol(VarlinkProtocol):
                 if not oneway:
                     self.send_reply(err)
             return None
+
+    @override
+    def eof_received(self) -> None:
+        super().eof_received()
+        self._closing = True
+        self._maybe_close_if_idle()
+
+    @override
+    def connection_lost(self, exc: Exception | None) -> None:
+        super().connection_lost(exc)
+        self.close()
 
     def call_received(
         self, call: VarlinkMethodCall, fds: FileDescriptorArray | None

@@ -170,6 +170,12 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             b'{"error":"com.example.demo.DemoError"}',
         )
 
+    async def test_invalid_interface(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.doesnotexist.Anything"}',
+            b'{"error":"org.varlink.service.InterfaceNotFound","parameters":{"interface":"com.example.doesnotexist"}}',
+        )
+
     async def test_invalid_method(self) -> None:
         await self.invoke(
             b'{"method":"com.example.demo.DoesNotExist"}',

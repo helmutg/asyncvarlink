@@ -88,6 +88,22 @@ class FileDescriptor:
             self.fd = fd
         self.should_close = should_close
 
+    @classmethod
+    def make_pipe(
+        cls, inheritable: bool = False, blocking: bool = False
+    ) -> tuple["FileDescriptor", "FileDescriptor"]:
+        """Create a pipe and wrap its ends in the FileDescriptor class."""
+        flags = 0
+        if not inheritable:
+            flags |= os.O_CLOEXEC
+        if not blocking:
+            flags |= os.O_NONBLOCK
+        if flags:
+            piper, pipew = os.pipe2(flags)
+        else:
+            piper, pipew = os.pipe()
+        return cls(piper), cls(pipew)
+
     def __bool__(self) -> bool:
         """Indicate whether the object refers to a plausibly open file
         descriptor.

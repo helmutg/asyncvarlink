@@ -91,6 +91,12 @@ When communicating via stdio, `varlinkctl` from `systemd` may be used to
 interact with a service. Registering a `VarlinkServiceInterface` implementing
 the `org.varlink.service` introspection interface is optional.
 
+Documentation
+=============
+
+The source for sphinxdoc documentation resides below `docs/`.
+A rendered version is [published on github pages](https://helmutg.github.io/asyncvarlink/).
+
 Collaboration
 =============
 

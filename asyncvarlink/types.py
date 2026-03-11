@@ -152,7 +152,6 @@ class FileDescriptor:
             return False
         return True
 
-
     def fileno(self) -> int:
         """Return the underlying file descriptor, i.e. self. Raises a
         ValueError when closed.

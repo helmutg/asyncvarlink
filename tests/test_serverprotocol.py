@@ -43,6 +43,11 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
     def Error(self) -> None:
         raise DemoError()
 
+    @varlinkmethod
+    async def AsyncError(self) -> None:
+        await asyncio.sleep(0)
+        raise DemoError()
+
     @varlinkmethod(return_parameter="result")
     async def FutureAnswer(self) -> int:
         return await self.fut
@@ -190,6 +195,12 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         await self.invoke(
             b'{"method":"com.example.demo.SyncMore"}',
             b'{"error":"org.varlink.service.ExpectedMore"}',
+        )
+
+    async def test_async_error(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.AsyncError"}',
+            b'{"error":"com.example.demo.DemoError"}',
         )
 
     async def test_more_error(self) -> None:

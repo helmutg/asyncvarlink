@@ -18,8 +18,8 @@ from .types import (
     FileDescriptor,
     FileDescriptorArray,
     HasFileno,
+    HasFilenoAndClose,
     JSONObject,
-    close_fileno,
     override,
 )
 
@@ -53,7 +53,7 @@ class VarlinkBaseProtocol(asyncio.BaseProtocol):
         """
 
 
-def _check_socket(thing: socket.socket | int | HasFileno) -> HasFileno:
+def _check_socket(thing: socket.socket | int | HasFileno) -> HasFilenoAndClose:
     """Attempt to upgrade a file descriptor into a socket object if it happens
     to be a socket.
     """
@@ -63,7 +63,12 @@ def _check_socket(thing: socket.socket | int | HasFileno) -> HasFileno:
         if not isinstance(thing, int):
             raise TypeError("not a file descriptor")
         thing = FileDescriptor(thing)
-    assert hasattr(thing, "fileno")  # mypy is unable to notice
+    elif not hasattr(thing, "close"):
+        thing = FileDescriptor(thing)
+    elif typing.TYPE_CHECKING:
+        # In principle, it could be an incompatible close method, so mypy
+        # rejects this otherwise.
+        thing = typing.cast(HasFilenoAndClose, thing)
     try:
         sock = socket.socket(fileno=thing.fileno())
     except OSError as err:
@@ -103,10 +108,10 @@ class VarlinkTransport(asyncio.BaseTransport):
     ):
         super().__init__(extra)
         self._loop = loop
-        self._recvfd: HasFileno | None = _check_socket(recvfd)
+        self._recvfd: HasFilenoAndClose | None = _check_socket(recvfd)
         self._paused = True
         os.set_blocking(self._recvfd.fileno(), False)
-        self._sendfd: HasFileno | None
+        self._sendfd: HasFilenoAndClose | None
         if recvfd is sendfd:
             self._sendfd = self._recvfd
         else:
@@ -152,7 +157,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._sendfd is None
             or self._recvfd.fileno() != self._sendfd.fileno()
         ):
-            close_fileno(self._recvfd)
+            self._recvfd.close()
         self._recvfd = None
         if loose_connection:
             self._loop.call_soon(self._connection_lost)
@@ -287,7 +292,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._recvfd is None
             or self._recvfd.fileno() != self._sendfd.fileno()
         ):
-            close_fileno(self._sendfd)
+            self._sendfd.close()
         self._sendfd = None
         if loose_connection:
             self._loop.call_soon(self._connection_lost)

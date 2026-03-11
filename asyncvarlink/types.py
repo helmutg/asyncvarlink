@@ -19,7 +19,6 @@ __all__ = [
     "HasFileno",
     "JSONObject",
     "JSONValue",
-    "close_fileno",
     "override",
     "validate_interface",
     "validate_name",
@@ -50,8 +49,7 @@ class HasFileno(typing.Protocol):
     """A typing protocol representing a file-like object and looking up the
     underlying file descriptor.
 
-    The object may also have a close method. It must not take arguments and
-    can be called at most once to release resources.
+    If it has a close method, it must be compatible with the HasClose protocol.
     """
 
     def fileno(self) -> int:
@@ -59,6 +57,17 @@ class HasFileno(typing.Protocol):
         object, the method may return a negative number or raise a
         ValueError.
         """
+
+
+class HasClose(typing.Protocol):
+    """A typing protocol representing objects that can be closed."""
+
+    def close(self) -> None:
+        """Can be called at most once to release resources."""
+
+
+class HasFilenoAndClose(HasFileno, HasClose, typing.Protocol):
+    """A file-like object supporting both fileno and close."""
 
 
 class FileDescriptor:
@@ -226,18 +235,6 @@ class FileDescriptor:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.fd!r})"
-
-
-def close_fileno(thing: HasFileno) -> None:
-    """Close something that has a fileno. Use .close() if available to improve
-    behaviour on sockets and buffered files.
-    """
-    try:
-        closemeth = getattr(thing, "close")
-    except AttributeError:
-        os.close(thing.fileno())
-    else:
-        closemeth()
 
 
 class FutureCounted:

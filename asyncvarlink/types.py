@@ -70,6 +70,34 @@ class HasFilenoAndClose(HasFileno, HasClose, typing.Protocol):
     """A file-like object supporting both fileno and close."""
 
 
+def get_fileno(fdlike: int | HasFileno | None) -> int:
+    """Return the underlying file descriptor number of an object that may
+    represent an open file descriptor. Raises a ValueError in case there is no
+    valid file descriptor (e.g. None).
+    """
+    if fdlike is None:
+        raise ValueError("explicitly invalid file descriptor")
+    try:
+        fileno_meth = getattr(fdlike, "fileno")
+    except AttributeError:
+        if not isinstance(fdlike, int):
+            raise TypeError(
+                f"not a file descriptor: {type(fdlike).__name__}"
+            ) from None
+        if fdlike < 0:
+            raise ValueError("negative file descriptor") from None
+        return fdlike
+    fdlike = fileno_meth()  # propagate ValueError
+    if fdlike is None:
+        # This is not covered by the protocol, but we can handle it.
+        raise ValueError("fileno returned None")
+    if not isinstance(fdlike, int):
+        raise TypeError(f"fileno returned a non-int: {type(fdlike).__name__}")
+    if fdlike < 0:
+        raise ValueError("fileno() returned negative")
+    return fdlike
+
+
 class FileDescriptor:
     """Wrap various file descriptor objects of different types in a
     recognizable type for using in a varlink interface.
@@ -175,25 +203,12 @@ class FileDescriptor:
             selffileno = self.fileno()
         except ValueError:
             selffileno = None
-        if other is None:
-            otherfileno = None
-        elif isinstance(other, int):
-            if other < 0:
-                otherfileno = None
-            else:
-                otherfileno = other
-        else:
-            try:
-                fileno_meth = getattr(other, "fileno")
-            except AttributeError:
-                return False
-            try:
-                otherfileno = fileno_meth()
-            except ValueError:
-                otherfileno = None
-            else:
-                if otherfileno < 0:
-                    otherfileno = None
+        try:
+            otherfileno = get_fileno(other)
+        except TypeError:
+            return False
+        except ValueError:
+            return selffileno is None
         return selffileno == otherfileno
 
     def __enter__(self) -> typing.Self:
@@ -322,23 +337,10 @@ class FileDescriptorArray(FutureCounted):
         self._by_position: list[FileDescriptor] = []
         self._by_fileno: dict[int, int] = {}
         for fdlike in fds or ():
-            if fdlike is None:
+            try:
+                fileno = get_fileno(fdlike)
+            except ValueError:
                 fileno = None
-            else:
-                try:
-                    fileno_meth = getattr(fdlike, "fileno")
-                except AttributeError:
-                    assert isinstance(fdlike, int)
-                    fileno = fdlike
-                else:
-                    try:
-                        fileno = fileno_meth()
-                    except ValueError:
-                        fileno = None
-                    else:
-                        assert isinstance(fileno, int)
-                        if fileno < 0:
-                            fileno = None
             if fileno is None:
                 self._by_position.append(FileDescriptor(None))
             elif fileno in self._by_fileno:
@@ -390,26 +392,7 @@ class FileDescriptorArray(FutureCounted):
         existing index is returned. Descriptors not wrapped in the
         FileDescriptor class are closed eventually.
         """
-        if isinstance(fdlike, FileDescriptor):
-            # Propagate ValueError
-            fileno = fdlike.fileno()
-        elif fdlike is None:
-            raise ValueError("attempt to add closed file descriptor")
-        else:
-            try:
-                fileno_meth = getattr(fdlike, "fileno")
-            except AttributeError:
-                assert isinstance(fdlike, int)
-                if fdlike < 0:
-                    raise ValueError(
-                        "attempt to add negative file descriptor"
-                    ) from None
-                fileno = fdlike
-            else:
-                # Propagate ValueError
-                fileno = fileno_meth()
-                if fileno < 0:
-                    raise ValueError("attempt to add negative file descriptor")
+        fileno = get_fileno(fdlike)  # Propagate ValueError and TypeError
         try:
             index = self._by_fileno[fileno]
         except KeyError:

@@ -86,6 +86,28 @@ jobs:
           name: sphinxdoc
           path: docs/build/
 
+  certification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install varlink-python
+        run: python3 -m pip install varlink
+      - name: Certify server
+        run: |
+          python3 ./tests/test_certification.py --socket ./asock &
+          for _ in `seq 100`; do test -e asock && break; sleep 0.1; done
+          python3 -m varlink.tests.test_certification --client --varlink unix:./asock
+      - name: Certify client
+        run: |
+          python3 -m varlink.tests.test_certification --varlink unix:./rsock &
+          for _ in `seq 100`; do test -e rsock && break; sleep 0.1; done
+          # Presently fails due to https://github.com/varlink/python/issues/54
+          python3 ./tests/test_certification.py --client --socket ./rsock || true
+
   publish:
     runs-on: ubuntu-latest
     environment: github-pages

@@ -110,7 +110,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
 
     @contextlib.asynccontextmanager
     async def piped_server(
-        self
+        self,
     ) -> collections.abc.AsyncIterator[tuple[FileDescriptor, FileDescriptor]]:
         loop = asyncio.get_running_loop()
         self.protocol = VarlinkInterfaceServerProtocol(self.registry)

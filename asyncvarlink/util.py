@@ -153,9 +153,13 @@ class VarlinkUnixServer(asyncio.AbstractServer):
 
     @override
     async def wait_closed(self) -> None:
-        if self._serving is None:
-            return
-        await self._serving
+        if self._serving is not None:
+            await self._serving
+        for transport in self._transports.copy():
+            try:
+                await transport.closed_future
+            except asyncio.CancelledError:
+                pass
 
     @override
     def close_clients(self) -> None:

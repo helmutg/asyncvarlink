@@ -97,6 +97,9 @@ class VarlinkTransport(asyncio.BaseTransport):
     varlink message.
     """
 
+    closed_future: asyncio.Future[None]
+    """A future that becomes ready once the transport is closed."""
+
     # pylint: disable=too-many-arguments  # Yes, we need five arguments.
     def __init__(
         self,
@@ -134,6 +137,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         self.set_protocol(protocol)
         self._loop.call_soon(self._protocol.connection_made, self)
         self._loop.call_soon(self.resume_receiving)
+        self.closed_future = self._loop.create_future()
 
     @override
     def set_protocol(self, protocol: asyncio.BaseProtocol) -> None:
@@ -347,6 +351,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._close_receiver()
             if not self._sendqueue:
                 self._close_sender()
+            self.closed_future.set_result(None)
 
     @override
     def close(self) -> None:

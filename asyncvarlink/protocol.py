@@ -529,7 +529,7 @@ class VarlinkProtocol(VarlinkBaseProtocol):
         fut = self._transport.send_message(
             _JSONEncoder.encode(obj).encode("utf8") + b"\0", fds
         )
-        if fds is not None and autoclose:
+        if fds and autoclose:
 
             @fut.add_done_callback
             def close_fds(_: asyncio.Future[None]) -> None:

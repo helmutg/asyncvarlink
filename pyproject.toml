@@ -7,7 +7,6 @@ license = "LGPL-2.0-or-later"
 authors = [{name = "Helmut Grohne", email = "helmut@subdivi.de"}]
 classifiers = [
   "Development Status :: 4 - Beta",
-  "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
   "Operating System :: POSIX",
   "Typing :: Typed",
   "Programming Language :: Python :: 3",

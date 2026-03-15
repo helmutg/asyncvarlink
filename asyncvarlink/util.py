@@ -100,7 +100,7 @@ class VarlinkUnixServer(asyncio.AbstractServer):
         loop: asyncio.AbstractEventLoop | None = None,
     ):
         self._loop = asyncio.get_running_loop() if loop is None else loop
-        self._sock = sock
+        self._sock: socket.socket | None = sock
         self._protocol_factory = protocol_factory
         self._serving: asyncio.Future[None] | None = None
         self._transports: weakref.WeakSet[VarlinkTransport] = weakref.WeakSet()
@@ -108,7 +108,10 @@ class VarlinkUnixServer(asyncio.AbstractServer):
     @override
     def close(self) -> None:
         if self._serving is not None:
+            assert self._sock is not None
             self._loop.remove_reader(self._sock)
+            self._sock.close()
+            self._sock = None
             self._serving.set_result(None)
             self._serving = None
 
@@ -123,11 +126,15 @@ class VarlinkUnixServer(asyncio.AbstractServer):
     @override
     async def start_serving(self) -> None:
         if self._serving is None:
+            if self._sock is None:
+                raise ValueError("cannot start serving on closed server")
             self._serving = self._loop.create_future()
             self._sock.listen(1)
             self._loop.add_reader(self._sock, self._handle_accept)
 
     def _handle_accept(self) -> None:
+        if self._sock is None:
+            return  # closed before handler could run
         try:
             conn, addr = self._sock.accept()
         except OSError as err:

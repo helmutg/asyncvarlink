@@ -30,7 +30,7 @@ class ConversionError(Exception):
     def expected(
         cls,
         what: str,
-        obj: typing.Any,
+        obj: object,
         location: list[str | int] | None = None,
     ) -> "ConversionError":
         """Construct a Conversion error indicating that something described by

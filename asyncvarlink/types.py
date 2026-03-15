@@ -204,7 +204,7 @@ class FileDescriptor:
         self.should_close = True
         return self
 
-    def __exit__(self, *exc_info: typing.Any) -> None:
+    def __exit__(self, *_: object) -> None:
         """Close the file descriptor on context manager exit."""
         self.close()
 

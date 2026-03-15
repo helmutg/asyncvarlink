@@ -224,7 +224,7 @@ class _ResourceManager:
     def __enter__(self) -> typing.Any:
         return self._result
 
-    def __exit__(self, *exc: typing.Any) -> None:
+    def __exit__(self, *_: object) -> None:
         self._close()
 
 

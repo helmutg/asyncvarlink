@@ -136,7 +136,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._closing = False
         self.set_protocol(protocol)
         self._loop.call_soon(self._protocol.connection_made, self)
-        self._loop.call_soon(self.resume_receiving)
+        self._loop.call_soon(self.resume_reading)
         self.closed_future = self._loop.create_future()
 
     @override
@@ -219,16 +219,25 @@ class VarlinkTransport(asyncio.BaseTransport):
             finally:
                 self._close_receiver()
 
-    def pause_receiving(self) -> None:
+    def pause_reading(self) -> None:
         """Pause receiving messages. No data will be passed to the protocol's
-        message_received() method until resume_receiving is called.
+        message_received() method until resume_reading is called.
         """
         if self._closing or self._recvfd is None or self._paused:
             return
         self._paused = True
         self._loop.remove_reader(self._recvfd)
 
-    def resume_receiving(self) -> None:
+    def pause_receiving(self) -> None:
+        """Deprecated alias of pause_reading."""
+        warnings.warn(
+            "method renamed to pause_reading",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.pause_reading()
+
+    def resume_reading(self) -> None:
         """Resume receiving messages. Received messages will be passed to the
         protocol's message_received method again.
         """
@@ -243,6 +252,15 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._loop.call_soon(
                 self._loop.add_reader, self._recvfd, self._handle_read_fd
             )
+
+    def resume_receiving(self) -> None:
+        """Deprecated alias of resume_reading."""
+        warnings.warn(
+            "method renamed to resume_reading",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.resume_reading()
 
     def send_message(
         self, data: bytes, fds: list[int] | None = None
@@ -454,7 +472,7 @@ class VarlinkProtocol(VarlinkBaseProtocol):
             fut = None
         if not self._consumer_queue:
             if self._transport is not None:
-                self._transport.resume_receiving()
+                self._transport.resume_reading()
             return
         consume, notify = self._consumer_queue.popleft()
         try:
@@ -478,17 +496,17 @@ class VarlinkProtocol(VarlinkBaseProtocol):
                 fut = None
             if fut is None:
                 # If the consumer finishes immediately, skip back pressure
-                # via pause_receiving as that typically incurs two syscalls.
+                # via pause_reading as that typically incurs two syscalls.
                 if self._consumer_queue:
                     asyncio.get_running_loop().call_soon(
                         self._process_queue, None
                     )
                 elif self._transport is not None:
-                    self._transport.resume_receiving()
+                    self._transport.resume_reading()
             else:
                 fut.add_done_callback(self._process_queue)
                 if self._transport is not None:
-                    self._transport.pause_receiving()
+                    self._transport.pause_reading()
 
     def request_received(
         self, obj: JSONObject, fds: FileDescriptorArray | None

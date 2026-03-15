@@ -2,6 +2,8 @@
 name = "asyncvarlink"
 version = "0.3.0"
 description = "asyncio-compatible, type-driven varlink implementation supporting file descriptor passing"
+readme = "README.md"
+license = "LGPL-2.0-or-later"
 authors = [{name = "Helmut Grohne", email = "helmut@subdivi.de"}]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -19,6 +21,7 @@ test = ["hypothesis"]
 homepage = "https://github.com/helmutg/asyncvarlink"
 github = "https://github.com/helmutg/asyncvarlink"
 issues = "https://github.com/helmutg/asyncvarlink/issues"
+documentation = "https://helmutg.github.io/asyncvarlink/"
 
 [build-system]
 requires = ["flit_core >=3.8"]

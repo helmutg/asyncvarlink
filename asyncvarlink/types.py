@@ -6,10 +6,10 @@
 import asyncio
 import collections.abc
 import contextlib
-import logging
 import os
 import re
 import typing
+import warnings
 
 
 __all__ = [
@@ -31,9 +31,6 @@ else:
     def override(func):
         """typing.override stub to be removed when dropping 3.11 support."""
         return func
-
-
-_logger_fd = logging.getLogger("asyncvarlink.filedescriptor")
 
 
 JSONValue = typing.Union[
@@ -218,8 +215,11 @@ class FileDescriptor:
         caller.
         """
         if not self.should_close:
-            _logger_fd.warning(
-                "unowned FileDescriptor %r being taken", self.fd
+            warnings.warn(
+                f"unowned FileDescriptor {self.fd!r} being taken",
+                ResourceWarning,
+                stacklevel=2,
+                source=self,
             )
         try:
             return self.fd
@@ -232,8 +232,10 @@ class FileDescriptor:
         """
         if self.fd is None or not self.should_close:
             return
-        _logger_fd.warning(
-            "owned FileDescriptor %r was never closed explicitly", self.fd
+        warnings.warn(
+            f"owned FileDescriptor {self.fd!r} was never closed explicitly",
+            ResourceWarning,
+            source=self,
         )
         self.close()
 
@@ -399,7 +401,17 @@ class FileDescriptorArray(FutureCounted):
             f"{fdlike!r} than existing entry {other.fd!r}"
         )
 
-    __del__ = destroy
+    def __del__(self) -> None:
+        fds = [fd for fd in self._by_position if fd]
+        if not fds:
+            return
+        warnings.warn(
+            "FileDescriptorArray not destroyed before garbage collection",
+            ResourceWarning,
+            source=self,
+        )
+        for fd in fds:
+            fd.release()
 
 
 def validate_interface(interface: str) -> None:

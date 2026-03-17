@@ -402,7 +402,7 @@ class FileDescriptorArray(FutureCounted):
         )
 
     def __del__(self) -> None:
-        fds = [fd for fd in self._by_position if fd]
+        fds = [fd for fd in self._by_position if fd.should_close and fd]
         if not fds:
             return
         warnings.warn(

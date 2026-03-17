@@ -23,7 +23,7 @@ from asyncvarlink.serviceinterface import (
     VarlinkServiceInterface,
 )
 
-from helpers import async_read_fd
+from helpers import async_read_fd, async_send_fds
 
 
 class DemoFailure(TypedVarlinkErrorReply):
@@ -72,39 +72,13 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         data = await self.loop.sock_recv(self.sock1, len(expected) + 1)
         self.assertEqual(data, expected)
 
-    def _send_data(
-        self,
-        fut: asyncio.Future[None],
-        data: bytes,
-        fds: list[int] | None = None,
-    ) -> None:
-        if fds is None:
-            fds = []
-        try:
-            sent = socket.send_fds(self.sock1, [data], fds)
-        except Exception as exc:
-            fut.set_exception(exc)
-        else:
-            if sent >= len(data):
-                self.loop.remove_writer(self.sock1)
-                fut.set_result(None)
-            else:
-                self.loop.add_writer(self.sock1, self._send_data, fut, data)
-
-    def send_data(
-        self, data: bytes, fds: list[int] | None = None
-    ) -> asyncio.Future[None]:
-        fut = self.loop.create_future()
-        self.loop.add_writer(self.sock1, self._send_data, fut, data, fds)
-        return fut
-
     async def test_simple(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
         await self.expect_data(
             b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
         )
         self.assertFalse(fut.done())
-        await self.send_data(b'{"parameters":{"result":"egg"}}\0')
+        await async_send_fds(self.sock1, b'{"parameters":{"result":"egg"}}\0')
         self.assertEqual(await fut, {"result": "egg"})
 
     async def test_more(self) -> None:
@@ -114,14 +88,14 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             b'{"method":"com.example.demo.MoreMethod","more":true}\0'
         )
         self.assertFalse(fut.done())
-        await self.send_data(
-            b'{"continues":true,"parameters":{"result":"spam"}}\0'
+        await async_send_fds(
+            self.sock1, b'{"continues":true,"parameters":{"result":"spam"}}\0'
         )
         self.assertEqual(await fut, {"result": "spam"})
         fut = asyncio.ensure_future(anext(gen))
         await asyncio.sleep(0)
         self.assertFalse(fut.done())
-        await self.send_data(b'{"parameters":{"result":"egg"}}\0')
+        await async_send_fds(self.sock1, b'{"parameters":{"result":"egg"}}\0')
         self.assertEqual(await fut, {"result": "egg"})
         with self.assertRaises(StopAsyncIteration):
             await anext(gen)
@@ -131,15 +105,15 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         await self.expect_data(
             b'{"method":"com.example.demo.Method","parameters":{"argument":"first"}}\0'
         )
-        await self.send_data(b'{"parameters":')
+        await async_send_fds(self.sock1, b'{"parameters":')
         fut2 = asyncio.ensure_future(self.proxy.Method(argument="second"))
         await self.expect_data(
             b'{"method":"com.example.demo.Method","parameters":{"argument":"second"}}\0'
         )
         self.assertFalse(fut1.done())
         self.assertFalse(fut2.done())
-        await self.send_data(
-            b'{"result":"one"}}\0{"parameters":{"result":"two"}}\0'
+        await async_send_fds(
+            self.sock1, b'{"result":"one"}}\0{"parameters":{"result":"two"}}\0'
         )
         self.assertEqual(await fut1, {"result": "one"})
         self.assertEqual(await fut2, {"result": "two"})
@@ -156,7 +130,9 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
         )
         self.assertFalse(fut.done())
-        await self.send_data(b'{"error":"com.example.demo.DemoFailure"}\0')
+        await async_send_fds(
+            self.sock1, b'{"error":"com.example.demo.DemoFailure"}\0'
+        )
         with self.assertRaises(DemoFailure):
             await fut
 
@@ -166,8 +142,8 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             b'{"method":"com.example.demo.Method","parameters":{"argument":"spam"}}\0'
         )
         self.assertFalse(fut.done())
-        await self.send_data(
-            b'{"error":"org.varlink.service.PermissionDenied"}\0'
+        await async_send_fds(
+            self.sock1, b'{"error":"org.varlink.service.PermissionDenied"}\0'
         )
         with self.assertRaises(PermissionDenied):
             await fut
@@ -192,19 +168,19 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_non_json_reply(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
-        await self.send_data(b"this is not json\0")
+        await async_send_fds(self.sock1, b"this is not json\0")
         with self.assertRaises(json.JSONDecodeError):
             await fut
 
     async def test_non_object_reply(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
-        await self.send_data(b'"not an object"\0')
+        await async_send_fds(self.sock1, b'"not an object"\0')
         with self.assertRaises(TypeError):
             await fut
 
     async def test_missing_fields(self) -> None:
         fut = asyncio.ensure_future(self.proxy.Method(argument="spam"))
-        await self.send_data(b'{"missing fields":0}\0')
+        await async_send_fds(self.sock1, b'{"missing fields":0}\0')
         with self.assertRaises(ConversionError):
             await fut
 
@@ -215,7 +191,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         rend, wend = os.pipe()
         self.addCleanup(os.close, rend)
         read_fut = async_read_fd(rend, 7)
-        await self.send_data(b'{"parameters":{"fd":0}}\0', [wend])
+        await async_send_fds(self.sock1, b'{"parameters":{"fd":0}}\0', [wend])
         with await fut as ret:
             wfd = ret["fd"].take()
         self.addCleanup(os.close, wfd)

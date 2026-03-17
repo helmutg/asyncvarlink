@@ -22,7 +22,7 @@ from asyncvarlink import (
     varlinkmethod,
 )
 
-from helpers import async_read_fd
+from helpers import async_read_fd, async_send_fds
 
 
 class DemoError(TypedVarlinkErrorReply, interface="com.example.demo"):
@@ -171,29 +171,6 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         else:
             fut.set_result((data, fds))
 
-    def sock_send_fds(
-        self, sock: socket.socket, data: bytes, fds: list[int]
-    ) -> asyncio.Future[None]:
-        loop = asyncio.get_running_loop()
-        fut = loop.create_future()
-        loop.add_writer(sock, self._sock_send_fds, sock, data, fds, fut)
-        return fut
-
-    def _sock_send_fds(
-        self,
-        sock: socket.socket,
-        data: bytes,
-        fds: list[int],
-        fut: asyncio.Future[None],
-    ) -> None:
-        asyncio.get_running_loop().remove_writer(sock)
-        try:
-            socket.send_fds(sock, [data], fds)
-        except Exception as exc:
-            fut.set_exception(exc)
-        else:
-            fut.set_result(None)
-
     async def invoke(self, request: bytes, expected_response: bytes) -> None:
         loop = asyncio.get_running_loop()
         async with self.connected_server() as (sock1, _):
@@ -296,7 +273,7 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             self.addCleanup(readsock.close)
             await loop.sock_sendall(writesock, b"spam")
             # This is blocking in theory, but it practically does not block.
-            await self.sock_send_fds(
+            await async_send_fds(
                 clsock,
                 b'{"method":"com.example.demo.ReadFromSocket","parameters":{"fd": 0}}\0',
                 [readsock.fileno()],

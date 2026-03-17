@@ -82,6 +82,17 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         sock1.close()
         return FileDescriptor(sock2, True)
 
+    @varlinkmethod(return_parameter="content")
+    async def ReadFromSocket(self, fd: FileDescriptor) -> str:
+        fileno = fd.take()
+        assert fileno is not None
+        if not isinstance(fileno, int):
+            fileno = fileno.fileno()
+        with socket.socket(fileno=fileno) as sock:
+            sock.setblocking(False)
+            data = await asyncio.get_running_loop().sock_recv(sock, 1024)
+            return data.decode("utf8")
+
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
     @override
@@ -159,6 +170,29 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             fut.set_exception(exc)
         else:
             fut.set_result((data, fds))
+
+    def sock_send_fds(
+        self, sock: socket.socket, data: bytes, fds: list[int]
+    ) -> asyncio.Future[None]:
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+        loop.add_writer(sock, self._sock_send_fds, sock, data, fds, fut)
+        return fut
+
+    def _sock_send_fds(
+        self,
+        sock: socket.socket,
+        data: bytes,
+        fds: list[int],
+        fut: asyncio.Future[None],
+    ) -> None:
+        asyncio.get_running_loop().remove_writer(sock)
+        try:
+            socket.send_fds(sock, [data], fds)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result(None)
 
     async def invoke(self, request: bytes, expected_response: bytes) -> None:
         loop = asyncio.get_running_loop()
@@ -251,6 +285,25 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                     data = await async_read_fd(fds[0], 1024)
                     os.close(fds[0])
                     self.assertEqual(data, b"needle")
+
+    async def test_pass_fd(self) -> None:
+        loop = asyncio.get_running_loop()
+        async with self.connected_server() as (clsock, srvsock):
+            writesock, readsock = socket.socketpair(
+                type=socket.SOCK_STREAM | socket.SOCK_NONBLOCK
+            )
+            self.addCleanup(writesock.close)
+            self.addCleanup(readsock.close)
+            await loop.sock_sendall(writesock, b"spam")
+            # This is blocking in theory, but it practically does not block.
+            await self.sock_send_fds(
+                clsock,
+                b'{"method":"com.example.demo.ReadFromSocket","parameters":{"fd": 0}}\0',
+                [readsock.fileno()],
+            )
+            data, fds = await self.sock_recv_fds(clsock)
+            self.assertEqual(data, b'{"parameters":{"content":"spam"}}\0')
+            self.assertEqual(fds, [])
 
     async def test_protocol_violation(self) -> None:
         await self.invoke(

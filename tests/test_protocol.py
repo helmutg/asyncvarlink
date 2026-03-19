@@ -18,12 +18,7 @@ from asyncvarlink import (
     VarlinkTransport,
 )
 
-
-async def wait_called(mock: Mock) -> None:
-    for delay in range(100):
-        if mock.called:
-            return
-        await asyncio.sleep(0.01 * delay)
+from helpers import defer
 
 
 class TransportTests(unittest.IsolatedAsyncioTestCase):
@@ -39,11 +34,11 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                 )
                 protocol.eof_received = transport.close
                 sock2.send(b"hello")
-                await wait_called(protocol.message_received)
+                await defer(until_called=protocol.message_received)
                 protocol.message_received.assert_called_once_with(
                     b"hello", None
                 )
-            await wait_called(protocol.connection_lost)
+            await defer(until_called=protocol.connection_lost)
             protocol.connection_lost.assert_called_once_with(None)
 
     async def test_receive_socket_eof(self) -> None:
@@ -55,7 +50,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                 asyncio.get_running_loop(), sock1, sock1, protocol
             )
             sock2.close()
-            await wait_called(protocol.eof_received)
+            await defer(until_called=protocol.eof_received)
         protocol.eof_received.assert_called_once_with()
 
     async def test_receive_pipe(self) -> None:
@@ -67,7 +62,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                 asyncio.get_running_loop(), pipe1, pipe2, protocol
             )
             os.write(pipe2, b"hello")
-            await wait_called(protocol.message_received)
+            await defer(until_called=protocol.message_received)
         finally:
             os.close(pipe2)
             os.close(pipe1)
@@ -79,7 +74,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         pipe1, pipe2 = os.pipe()
         VarlinkTransport(asyncio.get_running_loop(), pipe1, pipe2, protocol)
         os.close(pipe2)
-        await wait_called(protocol.eof_received)
+        await defer(until_called=protocol.eof_received)
         protocol.eof_received.assert_called_once_with()
 
     async def test_send_socket(self) -> None:
@@ -111,7 +106,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             )
             protocol.request_received = Mock()
             protocol.message_received(b'{"hello":"world"}\0', None)
-            await wait_called(protocol.request_received)
+            await defer(until_called=protocol.request_received)
             protocol.request_received.assert_called_once_with(
                 {"hello": "world"}, None
             )
@@ -128,7 +123,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             )
             protocol.error_received = Mock(wraps=protocol.error_received)
             protocol.message_received(b"}\0", None)
-            await wait_called(protocol.error_received)
+            await defer(until_called=protocol.error_received)
             protocol.error_received.assert_called_once()
         finally:
             os.close(pipe2)
@@ -172,7 +167,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             protocol.request_received = Mock()
             await asyncio.sleep(0)
             protocol.message_received(b'{"a":0}\0{"b":0}\0', None)
-            await wait_called(protocol.request_received)
+            await defer(until_called=protocol.request_received)
             protocol.request_received.assert_called_once_with({"a": 0}, None)
             await asyncio.sleep(0)
             protocol.request_received.assert_called_with({"b": 0}, None)

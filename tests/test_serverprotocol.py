@@ -22,7 +22,7 @@ from asyncvarlink import (
     varlinkmethod,
 )
 
-from helpers import async_read_fd, async_send_fds
+from helpers import async_read_fd, async_send_fds, defer
 
 
 class DemoError(TypedVarlinkErrorReply, interface="com.example.demo"):
@@ -296,16 +296,12 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                 sock1, b'{"method":"com.example.demo.FutureAnswer"}\0'
             )
             sock1.close()
-            for _ in range(10):
-                await asyncio.sleep(0)
+            await defer(count=10)
             # Since the future is still pending, the write end is not being
             # closed yet.
             self.assertFalse(self.protocol.connection_lost.called)
             self.fut.set_result(42)
-            for delay in range(100):
-                if self.protocol.connection_lost.called:
-                    break
-                await asyncio.sleep(0.01 * delay)
+            await defer(until_called=self.protocol.connection_lost)
             self.protocol.connection_lost.assert_called_once_with(None)
             self.assertLess(sock2.fileno(), 0)
 
@@ -317,18 +313,14 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
                 wpipe.fileno(), b'{"method":"com.example.demo.FutureAnswer"}\0'
             )
             wpipe.close()
-            for _ in range(10):
-                await asyncio.sleep(0)
+            await defer(count=10)
             # Since the future is still pending, the write end is not being
             # closed yet.
             self.assertFalse(self.protocol.connection_lost.called)
             self.fut.set_result(42)
             data = await async_read_fd(rpipe.fileno(), 1024)
             self.assertEqual(data, b'{"parameters":{"result":42}}\0')
-            for _ in range(10):
-                if self.protocol.connection_lost.called:
-                    break
-                await asyncio.sleep(0)
+            await defer(until_called=self.protocol.connection_lost)
             self.protocol.connection_lost.assert_called_once_with(None)
 
     async def test_broken_pipe(self) -> None:
@@ -341,8 +333,5 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             )
             wpipe.close()
             self.fut.set_result(42)
-            for _ in range(20):
-                if self.protocol.connection_lost.called:
-                    break
-                await asyncio.sleep(0)
+            await defer(until_called=self.protocol.connection_lost)
             self.protocol.connection_lost.assert_called_once_with(None)

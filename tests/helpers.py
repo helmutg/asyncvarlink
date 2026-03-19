@@ -4,6 +4,7 @@
 import asyncio
 import os
 import socket
+import unittest.mock
 
 
 def async_read_fd(fd: int, size: int) -> asyncio.Future[bytes]:
@@ -51,3 +52,12 @@ def async_send_fds(
     fut = loop.create_future()
     loop.add_writer(sock, _send_fds_writable, sock, data, fds, fut)
     return fut
+
+
+async def defer(
+    count: int = 100, until_called: unittest.mock.Mock | None = None
+) -> None:
+    for _ in range(count):
+        if until_called is not None and until_called.called:
+            return
+        await asyncio.sleep(0)

@@ -297,13 +297,7 @@ async def run_test(protocol: VarlinkClientProtocol) -> None:
     array = []
     async for res in proxy.Test10(client_id=cid, **res):
         array.append(res["string"])
-    await protocol.call(
-        VarlinkMethodCall(
-            CertificationInterface.name + ".Test11",
-            {"client_id": cid, "last_more_replies": array},
-            oneway=True,
-        )
-    )
+    await proxy.Test11.oneway(client_id=cid, last_more_replies=array)
     if not await proxy.End(client_id=cid):
         raise RuntimeError("certification failed")
 

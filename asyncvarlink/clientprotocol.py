@@ -11,7 +11,11 @@ import functools
 import typing
 
 from .conversion import FileDescriptorVarlinkType
-from .interface import VarlinkInterface, varlinksignature
+from .interface import (
+    VarlinkInterface,
+    VarlinkMethodSignature,
+    varlinksignature,
+)
 from .message import VarlinkMethodCall, VarlinkMethodReply
 from .protocol import VarlinkProtocol
 from .types import FileDescriptorArray, JSONObject, override
@@ -206,10 +210,6 @@ class VarlinkClientProtocol(VarlinkProtocol):
         return VarlinkInterfaceProxy(self, interface)
 
 
-class _KwOnlyFunction(typing.Protocol):
-    def __call__(self, **kwargs: typing.Any) -> typing.Any: ...
-
-
 class _ResourceManager:
     """A context manager that yields a given result on entry and calls a given
     cleanup function on exit.
@@ -226,6 +226,124 @@ class _ResourceManager:
 
     def __exit__(self, *_: object) -> None:
         self._close()
+
+
+class _ProxiedVarlinkMethodBase:
+    def __init__(
+        self,
+        protocol: VarlinkClientProtocol,
+        interface: type[VarlinkInterface],
+        fqmethod: str,
+        signature: VarlinkMethodSignature,
+    ):
+        self._protocol = protocol
+        self._interface = interface
+        self._fqmethod = fqmethod
+        self._signature = signature
+
+    @property
+    def oneway(self) -> "_ProxiedVarlinkOnewayMethod":
+        return _ProxiedVarlinkOnewayMethod(
+            self._protocol, self._interface, self._fqmethod, self._signature
+        )
+
+    def __call__(
+        self, **kwargs: typing.Any
+    ) -> (
+        collections.abc.Awaitable[typing.Any]
+        | collections.abc.AsyncIterator[typing.Any]
+    ):
+        raise NotImplementedError
+
+
+class _ProxiedVarlinkOnewayMethod(_ProxiedVarlinkMethodBase):
+    @property
+    def oneway(self) -> typing.Self:
+        return self
+
+    @override
+    async def __call__(self, **kwargs: typing.Any) -> None:
+        with FileDescriptorArray.new_managed() as pfds:
+            # This may raise a ConversionError
+            parameters = self._signature.parameter_type.tojson(
+                kwargs, {FileDescriptorVarlinkType: pfds}
+            )
+            with completing_future() as donefut:
+                result = await self._protocol.call(
+                    VarlinkMethodCall(self._fqmethod, parameters, oneway=True),
+                    [fd.fileno() for fd in pfds],
+                    donefut,
+                )
+                assert result is None
+
+
+class _ProxiedVarlinkMoreMethod(_ProxiedVarlinkMethodBase):
+    @override
+    async def __call__(
+        self, **kwargs: typing.Any
+    ) -> collections.abc.AsyncGenerator[typing.Any, None]:
+        with FileDescriptorArray.new_managed() as pfds:
+            # This may raise a ConversionError.
+            parameters = self._signature.parameter_type.tojson(
+                kwargs, {FileDescriptorVarlinkType: pfds}
+            )
+            async for reply, rfds in self._protocol.call_more(
+                VarlinkMethodCall(self._fqmethod, parameters, more=True),
+                [fd.fileno() for fd in pfds],
+            ):
+                if reply.error is None:
+                    # This may raise a ConversionError.
+                    ret = self._signature.return_type.fromjson(
+                        reply.parameters,
+                        {FileDescriptorVarlinkType: rfds},
+                    )
+                    if self._signature.return_type.contains_fds:
+                        if rfds is None:
+                            yield contextlib.nullcontext(ret)
+                        else:
+                            sentinel = object()
+                            rfds.reference(sentinel)
+                            yield _ResourceManager(
+                                ret,
+                                functools.partial(rfds.release, sentinel),
+                            )
+                    else:
+                        yield ret
+                else:
+                    self._interface.raise_error(reply)
+
+
+class _ProxiedVarlinkMethod(_ProxiedVarlinkMethodBase):
+    @override
+    async def __call__(self, **kwargs: typing.Any) -> typing.Any:
+        with FileDescriptorArray.new_managed() as pfds:
+            # This may raise a ConversionError
+            parameters = self._signature.parameter_type.tojson(
+                kwargs, {FileDescriptorVarlinkType: pfds}
+            )
+            with completing_future() as donefut:
+                result = await self._protocol.call(
+                    VarlinkMethodCall(self._fqmethod, parameters),
+                    [fd.fileno() for fd in pfds],
+                    donefut,
+                )
+                assert result is not None
+                reply, fda = result
+                if reply.error is None:
+                    # This may raise a ConversionError.
+                    ret = self._signature.return_type.fromjson(
+                        reply.parameters, {FileDescriptorVarlinkType: fda}
+                    )
+                    if not self._signature.return_type.contains_fds:
+                        return ret
+                    if fda is None:
+                        return contextlib.nullcontext(ret)
+                    sentinel = object()
+                    fda.reference(sentinel)
+                    return _ResourceManager(
+                        ret, functools.partial(fda.release, sentinel)
+                    )
+                self._interface.raise_error(reply)
 
 
 class VarlinkInterfaceProxy:
@@ -250,7 +368,7 @@ class VarlinkInterfaceProxy:
         self._protocol = protocol
         self._interface = interface
 
-    def __getattr__(self, attr: str) -> _KwOnlyFunction:
+    def __getattr__(self, attr: str) -> _ProxiedVarlinkMethodBase:
         """Look up a method on the VarlinkInterface subclass and return a proxy
         method if available. Raises AttributeError if no suitable method could
         be found. The type of the proxy method is dynamic. It is generally
@@ -268,72 +386,9 @@ class VarlinkInterfaceProxy:
         if (signature := varlinksignature(method)) is None:
             raise AttributeError(f"no {attr} varlink method found")
         if signature.more:
-
-            async def proxy_call_more(
-                **kwargs: typing.Any,
-            ) -> collections.abc.AsyncGenerator[typing.Any, None]:
-                with FileDescriptorArray.new_managed() as pfds:
-                    # This may raise a ConversionError.
-                    parameters = signature.parameter_type.tojson(
-                        kwargs, {FileDescriptorVarlinkType: pfds}
-                    )
-                    async for reply, rfds in self._protocol.call_more(
-                        VarlinkMethodCall(fqmethod, parameters, more=True),
-                        [fd.fileno() for fd in pfds],
-                    ):
-                        if reply.error is None:
-                            # This may raise a ConversionError.
-                            ret = signature.return_type.fromjson(
-                                reply.parameters,
-                                {FileDescriptorVarlinkType: rfds},
-                            )
-                            if signature.return_type.contains_fds:
-                                if rfds is None:
-                                    yield contextlib.nullcontext(ret)
-                                else:
-                                    sentinel = object()
-                                    rfds.reference(sentinel)
-                                    yield _ResourceManager(
-                                        ret,
-                                        functools.partial(
-                                            rfds.release, sentinel
-                                        ),
-                                    )
-                            else:
-                                yield ret
-                        else:
-                            self._interface.raise_error(reply)
-
-            return proxy_call_more
-
-        async def proxy_call(**kwargs: typing.Any) -> typing.Any:
-            with FileDescriptorArray.new_managed() as pfds:
-                # This may raise a ConversionError
-                parameters = signature.parameter_type.tojson(
-                    kwargs, {FileDescriptorVarlinkType: pfds}
-                )
-                with completing_future() as donefut:
-                    result = await self._protocol.call(
-                        VarlinkMethodCall(fqmethod, parameters),
-                        [fd.fileno() for fd in pfds],
-                        donefut,
-                    )
-                    assert result is not None
-                    reply, fda = result
-                    if reply.error is None:
-                        # This may raise a ConversionError.
-                        ret = signature.return_type.fromjson(
-                            reply.parameters, {FileDescriptorVarlinkType: fda}
-                        )
-                        if not signature.return_type.contains_fds:
-                            return ret
-                        if fda is None:
-                            return contextlib.nullcontext(ret)
-                        sentinel = object()
-                        fda.reference(sentinel)
-                        return _ResourceManager(
-                            ret, functools.partial(fda.release, sentinel)
-                        )
-                    self._interface.raise_error(reply)
-
-        return proxy_call
+            return _ProxiedVarlinkMoreMethod(
+                self._protocol, self._interface, fqmethod, signature
+            )
+        return _ProxiedVarlinkMethod(
+            self._protocol, self._interface, fqmethod, signature
+        )

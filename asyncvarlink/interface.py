@@ -7,7 +7,6 @@ import collections.abc
 import dataclasses
 import functools
 import inspect
-import itertools
 import typing
 
 from .conversion import ObjectVarlinkType, VarlinkType, _merge_typedefs
@@ -445,6 +444,11 @@ def varlinksignature(
     return getattr(method, "_varlink_signature", None)
 
 
+def _doc_to_comment(doc: str) -> typing.Iterator[str]:
+    """Turn a doc string into a varlink IDL compatible comment."""
+    return map("# ".__add__, inspect.cleandoc(doc).rstrip("\r\n").splitlines())
+
+
 class VarlinkInterface:
     """A base class for varlink interface implementations.
 
@@ -497,13 +501,15 @@ class VarlinkInterface:
         cls._error_map = error_map
 
     @classmethod
-    def render_interface_description(cls) -> str:
-        """Render a varlink interface description from this interface.
-        Refer to https://varlink.org/Interface-Definition.
-        """
+    def _generate_interface_description(
+        cls, comments: bool
+    ) -> typing.Iterator[str]:
+        if comments and cls.__doc__:
+            yield from _doc_to_comment(cls.__doc__)
+        yield f"interface {cls.name}"
+
         typedefs: dict[str, str] = {}
-        methods: dict[str, VarlinkMethodSignature] = {}
-        errors: dict[str, str] = {}
+        methods: list[str] = []
         for name in dir(cls):
             obj = getattr(cls, name)
             if (signature := varlinksignature(obj)) is None:
@@ -513,29 +519,46 @@ class VarlinkInterface:
                 signature.parameter_type.typedefs,
                 signature.return_type.typedefs,
             )
-            methods[name] = signature
+            if comments and obj.__doc__:
+                methods.append("")
+                methods.extend(_doc_to_comment(obj.__doc__))
+            methods.append(
+                f"method {name}{signature.parameter_type.as_varlink} -> "
+                f"{signature.return_type.as_varlink}"
+            )
+
+        errors: list[str] = []
         prefix = cls.name + "."
         for error in cls.errors:
-            if error.name.startswith(prefix):
+            name = error.name.removeprefix(prefix)
+            if name != error.name:
                 _merge_typedefs(typedefs, error.paramtype.typedefs)
-                errors[error.name[len(prefix) :]] = error.paramtype.as_varlink
-        return "\n".join(
-            itertools.chain(
-                (f"interface {cls.name}", ""),
-                (f"type {tname} {tdef}" for tname, tdef in typedefs.items()),
-                ("",) if typedefs else (),
-                (
-                    f"method {name}{signature.parameter_type.as_varlink} -> "
-                    f"{signature.return_type.as_varlink}"
-                    for name, signature in methods.items()
-                ),
-                (
-                    f"error {name} {varlinktype}"
-                    for name, varlinktype in errors.items()
-                ),
-                ("",),
-            ),
-        )
+                if comments and error.__doc__:
+                    errors.append("")
+                    errors.extend(_doc_to_comment(error.__doc__))
+                errors.append(f"error {name} {error.paramtype.as_varlink}")
+
+        if typedefs or not comments:
+            yield ""
+        for tname, tdef in typedefs.items():
+            yield f"type {tname} {tdef}"
+        if typedefs and methods and not comments:
+            yield ""
+        yield from methods
+        if methods and errors and not comments:
+            yield ""
+        yield from errors
+        if methods or errors:
+            yield ""
+
+    @classmethod
+    def render_interface_description(cls, *, comments: bool = True) -> str:
+        """Render a varlink interface description from this interface.
+        Refer to https://varlink.org/Interface-Definition. The comments
+        parameter indicates whether __doc__ strings should be included as
+        comments.
+        """
+        return "\n".join(cls._generate_interface_description(comments))
 
     @classmethod
     def raise_error(cls, reply: VarlinkMethodReply) -> typing.NoReturn:

@@ -32,7 +32,9 @@ __all__ = [
 
 
 class VarlinkServiceInterface(VarlinkInterface, name="org.varlink.service"):
-    """Implementation of the basic varlink introspection interface."""
+    """The Varlink Service Interface is provided by every varlink service. It
+    describes the service and the interfaces it implements.
+    """
 
     errors = (
         InterfaceNotFound,
@@ -57,9 +59,13 @@ class VarlinkServiceInterface(VarlinkInterface, name="org.varlink.service"):
         version: str,
         url: str,
         registry: VarlinkInterfaceRegistry,
+        *,
+        comments: bool = True,
     ):
         """Construct an introspection interface object from the given
-        metadata and a VarlinkInterfaceRegistry for introspection.
+        metadata and a VarlinkInterfaceRegistry for introspection. If
+        comments is enabled (default), __doc__ strings will be included in
+        interface descriptions as comments.
         """
         self._info: VarlinkServiceInterface._GetInfoResult = {
             "vendor": vendor,
@@ -69,19 +75,24 @@ class VarlinkServiceInterface(VarlinkInterface, name="org.varlink.service"):
             "interfaces": [],
         }
         self._registry = registry
+        self._comments = comments
 
     @varlinkmethod
     def GetInfo(self) -> _GetInfoResult:
-        """Refer to https://varlink.org/Service."""
+        """Get a list of all the interfaces a service provides and information
+        about the implementation.
+        """
         return self._info | {
             "interfaces": sorted(iface.name for iface in self._registry)
         }
 
     @varlinkmethod(return_parameter="description")
     def GetInterfaceDescription(self, *, interface: str) -> str:
-        """Refer to https://varlink.org/Service."""
+        """Get the description of an interface that is implemented by this
+        service.
+        """
         try:
             iface = self._registry[interface]
         except KeyError:
             raise InterfaceNotFound(interface=interface) from None
-        return iface.render_interface_description()
+        return iface.render_interface_description(comments=self._comments)

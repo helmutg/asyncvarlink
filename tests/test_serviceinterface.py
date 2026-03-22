@@ -20,6 +20,7 @@ class TestServiceInterface(unittest.TestCase):
             "1.0",
             "https://example.com",
             self.reg,
+            comments=False,
         )
         self.reg.register_interface(self.vsi)
 
@@ -46,6 +47,7 @@ class TestServiceInterface(unittest.TestCase):
 
 method GetInfo() -> (vendor: string, product: string, version: string, url: string, interfaces: []string)
 method GetInterfaceDescription(interface: string) -> (description: string)
+
 error InterfaceNotFound (interface: string)
 error MethodNotFound (method: string)
 error MethodNotImplemented (method: string)

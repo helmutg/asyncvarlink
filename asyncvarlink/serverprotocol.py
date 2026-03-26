@@ -130,7 +130,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
 
     def send_reply(
         self,
-        reply: VarlinkMethodReply | VarlinkErrorReply,
+        reply: VarlinkMethodReply,
         fds: list[int] | None = None,
         autoclose: bool = True,
     ) -> asyncio.Future[None]:
@@ -138,18 +138,20 @@ class VarlinkServerProtocol(VarlinkProtocol):
         semantics regarding fds, please refer to the documentation of
         send_message.
         """
-        try:
-            json = reply.tojson()
-        except ConversionError as err:
-            json = InvalidParameter(parameter=err.location[0]).tojson()
-            if fds and autoclose:
-                for fd in fds:
-                    os.close(fd)
-            fds = []
-        fut = self.send_message(json, fds, autoclose)
+        fut = self.send_message(reply.tojson(), fds, autoclose)
         fut.add_done_callback(self._on_message_sent)
         self._add_transfer(fut)
         return fut
+
+    def send_error(self, error: VarlinkErrorReply) -> asyncio.Future[None]:
+        """Enqueue the given error for sending. The future shall be done when
+        the error has been sent.
+        """
+        try:
+            reply = error.toreply()
+        except ConversionError as err:
+            reply = InvalidParameter(parameter=err.location[0]).toreply()
+        return self.send_reply(reply)
 
     def _on_receiver_completes(
         self,
@@ -162,7 +164,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
         if exc is not None:
             if isinstance(exc, VarlinkErrorReply):
                 if not oneway:
-                    self.send_reply(exc)
+                    self.send_error(exc)
             elif isinstance(exc, (SystemExit, KeyboardInterrupt)):
                 raise exc
             else:
@@ -170,7 +172,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
                     self.handle_call_exception(exc, oneway)
                 except VarlinkErrorReply as err:
                     if not oneway:
-                        self.send_reply(err)
+                        self.send_error(err)
         backpressure_fut.set_result(None)
 
     def handle_call_exception(self, exc: BaseException, oneway: bool) -> None:
@@ -184,7 +186,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
             "unhandled exception from call_received future", exc_info=exc
         )
         if not oneway:
-            self.send_reply(
+            self.send_error(
                 GenericVarlinkErrorReply(
                     "invalid.asyncvarlink.InternalServerError"
                 )
@@ -214,7 +216,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
             return bpfut
         except VarlinkErrorReply as err:
             if not obj.get("oneway", False):
-                self.send_reply(err)
+                self.send_error(err)
             return None
         except (SystemExit, KeyboardInterrupt):
             raise
@@ -224,7 +226,7 @@ class VarlinkServerProtocol(VarlinkProtocol):
                 self.handle_call_exception(exc, oneway)
             except VarlinkErrorReply as err:
                 if not oneway:
-                    self.send_reply(err)
+                    self.send_error(err)
             return None
 
     @override
@@ -353,7 +355,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
                 continues = result.continues
             assert not continues
         except VarlinkErrorReply as err:
-            self.send_reply(err)
+            self.send_error(err)
 
     async def _call_async_method_single(
         self,
@@ -382,7 +384,7 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
                 fds.reference_until_done(fut)
         except VarlinkErrorReply as err:
             if not oneway:
-                self.send_reply(err)
+                self.send_error(err)
 
     async def _call_async_method_more(
         self,
@@ -418,4 +420,4 @@ class VarlinkInterfaceServerProtocol(VarlinkServerProtocol):
                 continues = result.continues
             assert not continues
         except VarlinkErrorReply as err:
-            self.send_reply(err)
+            self.send_error(err)

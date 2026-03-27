@@ -247,9 +247,7 @@ class _ProxiedVarlinkMethodBase:
             self._protocol, self._interface, self._fqmethod, self._signature
         )
 
-    def __call__(
-        self, **kwargs: typing.Any
-    ) -> typing.Any:
+    def __call__(self, **kwargs: typing.Any) -> typing.Any:
         # This really returns either an Awaitable or an AsyncGenerator, but
         # typing it like that makes using it very annoying.
         raise NotImplementedError

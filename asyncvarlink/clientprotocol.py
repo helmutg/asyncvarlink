@@ -249,10 +249,9 @@ class _ProxiedVarlinkMethodBase:
 
     def __call__(
         self, **kwargs: typing.Any
-    ) -> (
-        collections.abc.Awaitable[typing.Any]
-        | collections.abc.AsyncIterator[typing.Any]
-    ):
+    ) -> typing.Any:
+        # This really returns either an Awaitable or an AsyncGenerator, but
+        # typing it like that makes using it very annoying.
         raise NotImplementedError
 
 

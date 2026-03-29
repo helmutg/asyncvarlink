@@ -542,10 +542,10 @@ class VarlinkInterface:
             yield ""
         for tname, tdef in typedefs.items():
             yield f"type {tname} {tdef}"
-        if typedefs and methods and not comments:
+        if typedefs and methods and methods[0]:
             yield ""
         yield from methods
-        if methods and errors and not comments:
+        if methods and errors and errors[0]:
             yield ""
         yield from errors
         if methods or errors:

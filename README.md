@@ -55,7 +55,7 @@ stubs will do.
             return Direction.left if value == Direction.right else Direction.right
 
         @varlinkmethod(return_parameter="value")
-        def Range(self, *, count: int) -> collections.abc.Iterable[int]:
+        def Range(self, *, count: int) -> collections.abc.Iterator[int]:
             return range(count)
 
         @varlinkmethod

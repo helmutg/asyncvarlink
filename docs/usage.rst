@@ -63,7 +63,7 @@ Let's go through the following example.
 
        @varlinkmethod(return_parameter="value")
        def Range(self, *, count: int) -> collections.abc.Iterator[int]:
-           return range(count)
+           return iter(range(count))
 
        @varlinkmethod
        async def Sleep(self, *, delay: float) -> None:

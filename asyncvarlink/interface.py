@@ -214,18 +214,18 @@ def varlinkmethod(
     dict and a bare value to be wrapped in a dict with return_parameter as key
     otherwise.
 
-    If the function is a generator (async or not), AnnotatedResult are
-    forwarded immediately. They must correctly indicate whether the generator
-    produces another element by setting the continues field appropriately. If
-    delay_generator is True, other values will be delayed until the next
-    element is produced (and thus the continues field for the previous element
-    is known). Otherwise, all values are forwarded immediately assuming that
-    generator never finishes via StopIteration or AsyncStopIteration. In the
-    latter case, a final value may produced by raising it inside as LastResult
-    exception. The function must produce at least one result or raise a
-    LastResult exception.
+    If the function is a generator (async or not), AnnotatedResult instances
+    are forwarded immediately. They must correctly indicate whether the
+    generator produces another element by setting the continues field
+    appropriately. If delay_generator is True, other values will be delayed
+    until the next element is produced (and thus the continues field for the
+    previous element is known). Otherwise, all values are forwarded immediately
+    assuming that generator never finishes via StopIteration or
+    AsyncStopIteration. In the latter case, a final value may produced by
+    raising it inside as LastResult exception. The function must produce at
+    least one result or raise a LastResult exception.
 
-    If the allow_foreign is enabled, unkown Python types are represented as
+    If the allow_foreign is enabled, unknown Python types are represented as
     ForeignVarlinkType. Otherwise, the decorator fails when encountering an
     unknown Python type.
     """

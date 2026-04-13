@@ -211,7 +211,7 @@ def varlinkmethod(
     is known). Otherwise, all values are forwarded immediately assuming that
     generator never finishes via StopIteration or AsyncStopIteration. In the
     latter case, a final value may produced by raising it inside as LastResult
-    exception. The function must produce at least one result or raise as
+    exception. The function must produce at least one result or raise a
     LastResult exception.
     """
 

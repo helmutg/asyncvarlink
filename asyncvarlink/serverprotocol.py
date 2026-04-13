@@ -7,7 +7,6 @@ import asyncio
 import collections.abc
 import functools
 import logging
-import os
 import typing
 
 from .conversion import ConversionError, FileDescriptorVarlinkType

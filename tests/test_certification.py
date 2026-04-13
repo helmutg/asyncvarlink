@@ -192,7 +192,7 @@ class CertificationInterface(
         self.check_equal({"foo": "Foo", "bar": "Bar"}, map)
         return {"one", "two", "three"}
 
-    @varlinkmethod(return_parameter="mytype")
+    @varlinkmethod(return_parameter="mytype", allow_foreign=True)
     def Test09(self, client_id: str, set: set[str]) -> MyType:
         self.check_method(client_id, "Test09", "Test10")
         self.check_equal({"one", "two", "three"}, set)
@@ -219,7 +219,7 @@ class CertificationInterface(
             ),
         )
 
-    @varlinkmethod(return_parameter="string")
+    @varlinkmethod(return_parameter="string", allow_foreign=True)
     def Test10(self, client_id: str, mytype: MyType) -> typing.Iterator[str]:
         self.check_equal(
             {

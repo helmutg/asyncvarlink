@@ -9,7 +9,12 @@ import functools
 import inspect
 import typing
 
-from .conversion import ObjectVarlinkType, VarlinkType, _merge_typedefs
+from .conversion import (
+    ForeignVarlinkType,
+    ObjectVarlinkType,
+    VarlinkType,
+    _merge_typedefs,
+)
 from .error import GenericVarlinkErrorReply, TypedVarlinkErrorReply
 from .message import VarlinkMethodReply
 from .types import JSONObject, validate_interface
@@ -81,21 +86,19 @@ _MethodResultType = (
 )
 
 
-def _params_to_varlinkobj(
-    params: collections.abc.Iterator[tuple[str, inspect.Parameter]],
-) -> ObjectVarlinkType:
-    return ObjectVarlinkType(
-        {
-            name: (
-                VarlinkType.from_type_annotation(tobj.annotation)
-                if tobj.default is tobj.empty
-                else VarlinkType.from_type_annotation(
-                    tobj.annotation
-                ).optional()
-            )
-            for name, tobj in params
-        },
-    )
+def _param_to_varlinkobj(
+    name: str, tobj: inspect.Parameter, *, allow_foreign: bool = False
+) -> VarlinkType:
+    vtype = VarlinkType.from_type_annotation(tobj.annotation)
+    if (not allow_foreign) and any(
+        isinstance(vt, ForeignVarlinkType) for vt in vtype.traverse()
+    ):
+        raise TypeError(
+            f"Use of foreign not enabled for parameter {name} typed {tobj.annotation!r}"
+        )
+    if tobj.default is tobj.empty:
+        return vtype
+    return vtype.optional()
 
 
 class _VarlinkMethodDecorator(typing.Protocol):
@@ -137,6 +140,7 @@ def varlinkmethod(
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
+    allow_foreign: bool = False,
 ) -> collections.abc.Callable[
     _P, collections.abc.AsyncIterator[AnnotatedResult]
 ]: ...
@@ -148,6 +152,7 @@ def varlinkmethod(
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
+    allow_foreign: bool = False,
 ) -> collections.abc.Callable[
     _P, collections.abc.Iterator[AnnotatedResult]
 ]: ...
@@ -159,6 +164,7 @@ def varlinkmethod(
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
+    allow_foreign: bool = False,
 ) -> collections.abc.Callable[
     _P, collections.abc.Awaitable[AnnotatedResult]
 ]: ...
@@ -170,12 +176,16 @@ def varlinkmethod(
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
+    allow_foreign: bool = False,
 ) -> collections.abc.Callable[_P, _MethodResultType]: ...
 
 
 @typing.overload
 def varlinkmethod(
-    *, return_parameter: str | None = None, delay_generator: bool = True
+    *,
+    return_parameter: str | None = None,
+    delay_generator: bool = True,
+    allow_foreign: bool = False,
 ) -> _VarlinkMethodDecorator: ...
 
 
@@ -187,6 +197,7 @@ def varlinkmethod(
     *,
     return_parameter: str | None = None,
     delay_generator: bool = True,
+    allow_foreign: bool = False,
 ) -> (
     collections.abc.Callable[
         [collections.abc.Callable[_P, _R]],
@@ -213,6 +224,10 @@ def varlinkmethod(
     latter case, a final value may produced by raising it inside as LastResult
     exception. The function must produce at least one result or raise a
     LastResult exception.
+
+    If the allow_foreign is enabled, unkown Python types are represented as
+    ForeignVarlinkType. Otherwise, the decorator fails when encountering an
+    unknown Python type.
     """
 
     def wrap(
@@ -242,11 +257,6 @@ def varlinkmethod(
         return_vtype: VarlinkType
         make_result: collections.abc.Callable[[_R], AnnotatedResult]
         if return_type is None:
-            if return_parameter is not None:
-                raise TypeError(
-                    "Must not return None when return_parameter is given"
-                )
-
             return_vtype = ObjectVarlinkType({})
 
             def make_result(_result: _R) -> AnnotatedResult:
@@ -254,6 +264,13 @@ def varlinkmethod(
 
         else:
             return_vtype = VarlinkType.from_type_annotation(return_type)
+            if (not allow_foreign) and any(
+                isinstance(vt, ForeignVarlinkType)
+                for vt in return_vtype.traverse()
+            ):
+                raise TypeError(
+                    f"Use of foreign not enabled for return type {return_type!r}"
+                )
             if return_parameter is not None:
                 return_vtype = ObjectVarlinkType(
                     {return_parameter: return_vtype}
@@ -274,9 +291,17 @@ def varlinkmethod(
         vlsig = VarlinkMethodSignature(
             asyncgen or asynchronous,
             more,
-            _params_to_varlinkobj(param_iterator),
+            ObjectVarlinkType(
+                {
+                    name: _param_to_varlinkobj(
+                        name, tobj, allow_foreign=allow_foreign
+                    )
+                    for name, tobj in param_iterator
+                },
+            ),
             return_vtype,
         )
+
         wrapped: collections.abc.Callable[_P, typing.Any]
         if more and asyncgen:
             asynciterfunction = typing.cast(

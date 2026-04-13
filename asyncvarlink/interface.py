@@ -239,28 +239,37 @@ def varlinkmethod(
         ):
             return_type = typing.get_args(return_type)[0]
             more = True
-        return_vtype = VarlinkType.from_type_annotation(return_type)
+        return_vtype: VarlinkType
         make_result: collections.abc.Callable[[_R], AnnotatedResult]
-        if return_parameter is not None:
-            return_vtype = ObjectVarlinkType({return_parameter: return_vtype})
+        if return_type is None:
+            if return_parameter is not None:
+                raise TypeError(
+                    "Must not return None when return_parameter is given"
+                )
 
-            def make_result(result: _R) -> AnnotatedResult:
-                return AnnotatedResult({return_parameter: result})
-
-        elif return_type is None:
             return_vtype = ObjectVarlinkType({})
 
             def make_result(_result: _R) -> AnnotatedResult:
                 return AnnotatedResult({})
 
-        elif not isinstance(return_vtype, ObjectVarlinkType):
-            raise TypeError("a varlinkmethod must return a mapping")
         else:
-            # mypy cannot figure out that a type also is a Callable.
-            make_result = typing.cast(
-                collections.abc.Callable[[_R], AnnotatedResult],
-                AnnotatedResult,
-            )
+            return_vtype = VarlinkType.from_type_annotation(return_type)
+            if return_parameter is not None:
+                return_vtype = ObjectVarlinkType(
+                    {return_parameter: return_vtype}
+                )
+
+                def make_result(result: _R) -> AnnotatedResult:
+                    return AnnotatedResult({return_parameter: result})
+
+            elif not isinstance(return_vtype, ObjectVarlinkType):
+                raise TypeError("a varlinkmethod must return a mapping")
+            else:
+                # mypy cannot figure out that a type also is a Callable.
+                make_result = typing.cast(
+                    collections.abc.Callable[[_R], AnnotatedResult],
+                    AnnotatedResult,
+                )
 
         vlsig = VarlinkMethodSignature(
             asyncgen or asynchronous,

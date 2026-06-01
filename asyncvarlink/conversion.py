@@ -250,6 +250,7 @@ class SimpleVarlinkType(VarlinkType):
                 ) from exc
         raise ConversionError.expected(self.as_varlink, obj)
 
+    @override
     def __repr__(self) -> str:
         typestr = ", ".join(
             tobj.__name__ if tobj in {bool, float, int, str} else repr(tobj)
@@ -285,6 +286,7 @@ class OptionalVarlinkType(VarlinkType):
             return None
         return self._vtype.fromjson(obj, oobstate)
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._vtype!r})"
 
@@ -335,6 +337,7 @@ class ListVarlinkType(VarlinkType):
     def subtypes(self) -> collections.abc.Iterator[VarlinkType]:
         yield self._elttype
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._elttype!r})"
 
@@ -383,6 +386,7 @@ class DictVarlinkType(VarlinkType):
     def subtypes(self) -> collections.abc.Iterator[VarlinkType]:
         yield self._elttype
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._elttype!r})"
 
@@ -426,6 +430,7 @@ class SetVarlinkType(VarlinkType):
             result.add(key)
         return result
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
@@ -504,6 +509,7 @@ class ObjectVarlinkType(VarlinkType):
     def subtypes(self) -> collections.abc.Iterator[VarlinkType]:
         yield from self._typemap.values()
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._typemap!r})"
 
@@ -576,6 +582,7 @@ class DataclassVarlinkType(VarlinkType):
     def subtypes(self) -> collections.abc.Iterator[VarlinkType]:
         yield from self._typemap.values()
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.as_type})"
 
@@ -612,6 +619,7 @@ class EnumVarlinkType(VarlinkType):
                 f"enum {self.as_type!r} value {obj!r} not known"
             ) from err
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.as_type!r})"
 
@@ -641,6 +649,7 @@ class LiteralVarlinkType(VarlinkType):
             raise ConversionError(f"invalid literal value {obj!r}")
         return obj
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._values!r})"
 

@@ -17,7 +17,7 @@ from .conversion import (
 )
 from .error import GenericVarlinkErrorReply, TypedVarlinkErrorReply
 from .message import VarlinkMethodReply
-from .types import JSONObject, validate_interface
+from .types import JSONObject, override, validate_interface
 
 
 _P = typing.ParamSpec("_P")
@@ -505,6 +505,7 @@ class VarlinkInterface:
     _error_map: dict[str, type[TypedVarlinkErrorReply]]
     """Constructed by __init_subclass__ from the errors sequence."""
 
+    @override
     def __init_subclass__(
         cls: type["VarlinkInterface"], *, name: str | None = None
     ) -> None:

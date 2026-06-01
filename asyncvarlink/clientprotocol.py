@@ -255,6 +255,7 @@ class _ProxiedVarlinkMethodBase:
 
 class _ProxiedVarlinkOnewayMethod(_ProxiedVarlinkMethodBase):
     @property
+    @override
     def oneway(self) -> typing.Self:
         return self
 

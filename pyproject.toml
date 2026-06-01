@@ -46,6 +46,7 @@ include = ["conftest.py", "docs/", "README.md", "tests/"]
 
 [tool.mypy]
 strict = true
+enable_error_code = "explicit-override"
 
 [tool.pylint]
 max-line-length = 79

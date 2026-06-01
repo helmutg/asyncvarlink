@@ -180,6 +180,7 @@ class FileDescriptor:
         if self.should_close:
             self.close()
 
+    @override
     def __eq__(self, other: typing.Any) -> bool:
         """Compare two file descriptors. Comparison to integers, None or
         objects with a fileno method may succeed. Ownership is not considered
@@ -239,6 +240,7 @@ class FileDescriptor:
         )
         self.close()
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.fd!r})"
 
@@ -348,6 +350,7 @@ class FileDescriptorArray(FutureCounted):
         """Are there any owned file descriptors in the array?"""
         return any(self._by_position)
 
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FileDescriptorArray):
             return False

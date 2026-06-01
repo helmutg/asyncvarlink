@@ -67,6 +67,7 @@ class GenericVarlinkErrorReply(VarlinkErrorReply):
     def paramstojson(self) -> JSONObject:
         return self.parameters
 
+    @override
     def __repr__(self) -> str:
         if not self.parameters:
             return f"{self.__class__.__name__}({self.name!r})"
@@ -105,6 +106,7 @@ class TypedVarlinkErrorReply(VarlinkErrorReply):
     the Parameters class attribute.
     """
 
+    @override
     def __init_subclass__(
         cls: type["TypedVarlinkErrorReply"], **kwargs: typing.Any
     ) -> None:

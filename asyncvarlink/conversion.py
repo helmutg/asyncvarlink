@@ -444,8 +444,35 @@ class ObjectVarlinkType(VarlinkType):
     def __init__(
         self,
         typemap: dict[str, VarlinkType],
+        *,
+        populatenone: collections.abc.Collection[str] = frozenset(),
+        discardnone: collections.abc.Collection[str] = frozenset(),
     ):
+        """Construct an representation of a varlink object from a given mapping
+        from keys to type representations. Optionally, two further sets may be
+        given. Fields that are to be found in the populatenone set shall always
+        be emitted as None by fromjson even if missing in the source. In a
+        similar vein, fields that are found in the discardnone set, are removed
+        by fromjson if their value is None.
+        """
+        non_optional = {
+            name
+            for name, tobj in typemap.items()
+            if not isinstance(tobj, OptionalVarlinkType)
+        }
+        if excess := non_optional.intersection(populatenone):
+            raise ValueError(
+                f"non-optional fields {excess} must not be listed in "
+                "populatenone"
+            )
+        if excess := non_optional.intersection(discardnone):
+            raise ValueError(
+                f"non-optional fields {excess} must not be listed in "
+                "discardnone"
+            )
         self._typemap = typemap
+        self._populatenone = populatenone
+        self._discardnone = discardnone
         # mypy cannot runtime-constructed type hints.
         self.as_type = typing.TypedDict(  # type: ignore[misc]
             "ObjectVarlinkTypedDict",
@@ -494,12 +521,16 @@ class ObjectVarlinkType(VarlinkType):
                 value = obj[key]
             except KeyError as err:
                 if isinstance(vtype, OptionalVarlinkType):
+                    if key in self._populatenone:
+                        result[key] = None
                     continue
                 raise ConversionError(
                     f"missing required key {key} in given dict"
                 ) from err
             with ConversionError.context(key):
-                result[key] = vtype.fromjson(value, oobstate)
+                pyvalue = vtype.fromjson(value, oobstate)
+            if pyvalue is not None or key not in self._discardnone:
+                result[key] = pyvalue
         for key in obj:
             if key not in self._typemap:
                 raise ConversionError(f"no type for key {key}", [key])

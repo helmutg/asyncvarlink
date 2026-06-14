@@ -93,6 +93,14 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
             data = await asyncio.get_running_loop().sock_recv(sock, 1024)
             return data.decode("utf8")
 
+    @varlinkmethod(return_parameter="error")
+    def Optional(self, *, optnone: int | None, optdef: int = 42) -> str | None:
+        if optnone is not None:
+            return "optnone is not None"
+        if optdef != 42:
+            return "optdef != 42"
+        return None
+
 
 class ServerTests(unittest.IsolatedAsyncioTestCase):
     @override
@@ -335,3 +343,9 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
             self.fut.set_result(42)
             await defer(until_called=self.protocol.connection_lost)
             self.protocol.connection_lost.assert_called_once_with(None)
+
+    async def test_optional(self) -> None:
+        await self.invoke(
+            b'{"method":"com.example.demo.Optional","parameters":{"optdef":null}}',
+            b'{"parameters":{"error":null}}',
+        )

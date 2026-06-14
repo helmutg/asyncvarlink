@@ -12,6 +12,7 @@ import typing
 from .conversion import (
     ForeignVarlinkType,
     ObjectVarlinkType,
+    OptionalVarlinkType,
     VarlinkType,
     _merge_typedefs,
 )
@@ -86,19 +87,33 @@ _MethodResultType = (
 )
 
 
-def _param_to_varlinkobj(
-    name: str, tobj: inspect.Parameter, *, allow_foreign: bool = False
-) -> VarlinkType:
-    vtype = VarlinkType.from_type_annotation(tobj.annotation)
-    if (not allow_foreign) and any(
-        isinstance(vt, ForeignVarlinkType) for vt in vtype.traverse()
-    ):
-        raise TypeError(
-            f"Use of foreign not enabled for parameter {name} typed {tobj.annotation!r}"
-        )
-    if tobj.default is tobj.empty:
-        return vtype
-    return vtype.optional()
+def _params_to_varlinkobj(
+    params: collections.abc.Iterator[tuple[str, inspect.Parameter]],
+    *,
+    allow_foreign: bool = False,
+) -> ObjectVarlinkType:
+    typemap = {}
+    populatenone = set()
+    discardnone = set()
+    for name, tobj in params:
+        vtype = VarlinkType.from_type_annotation(tobj.annotation)
+        if (not allow_foreign) and any(
+            isinstance(vt, ForeignVarlinkType) for vt in vtype.traverse()
+        ):
+            raise TypeError(
+                f"Use of foreign not enabled for parameter {name} typed "
+                f"{tobj.annotation!r}"
+            )
+        if tobj.default is tobj.empty:
+            typemap[name] = vtype
+            if isinstance(vtype, OptionalVarlinkType):
+                populatenone.add(name)
+        else:
+            typemap[name] = vtype.optional()
+            discardnone.add(name)
+    return ObjectVarlinkType(
+        typemap, populatenone=populatenone, discardnone=discardnone
+    )
 
 
 class _VarlinkMethodDecorator(typing.Protocol):
@@ -291,14 +306,7 @@ def varlinkmethod(
         vlsig = VarlinkMethodSignature(
             asyncgen or asynchronous,
             more,
-            ObjectVarlinkType(
-                {
-                    name: _param_to_varlinkobj(
-                        name, tobj, allow_foreign=allow_foreign
-                    )
-                    for name, tobj in param_iterator
-                },
-            ),
+            _params_to_varlinkobj(param_iterator, allow_foreign=allow_foreign),
             return_vtype,
         )
 

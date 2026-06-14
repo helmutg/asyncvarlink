@@ -370,6 +370,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._close_receiver()
             if not self._sendqueue:
                 self._close_sender()
+            assert self._closing
             self.closed_future.set_result(None)
 
     @override

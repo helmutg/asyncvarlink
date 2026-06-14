@@ -515,7 +515,7 @@ class ObjectVarlinkType(VarlinkType):
     ) -> typing.Any:
         if not isinstance(obj, dict):
             raise ConversionError.expected("map", obj)
-        result = {}
+        result: dict[str, typing.Any] = {}
         for key, vtype in self._typemap.items():
             try:
                 value = obj[key]

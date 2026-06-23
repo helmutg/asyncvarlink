@@ -42,7 +42,7 @@ exclude_also = [
 name = "asyncvarlink"
 
 [tool.flit.sdist]
-include = ["conftest.py", "docs/", "README.md", "tests/"]
+include = ["conftest.py", "docs/", "LICENSE", "README.md", "tests/"]
 
 [tool.mypy]
 strict = true

@@ -455,17 +455,26 @@ class ObjectVarlinkType(VarlinkType):
         similar vein, fields that are found in the discardnone set, are removed
         by fromjson if their value is None.
         """
-        non_optional = {
+        names = set(typemap.keys())
+        if excess := set(populatenone).difference(names):
+            raise ValueError(
+                f"populatenone contains fields {excess} without given a type"
+            )
+        if excess := set(discardnone).difference(names):
+            raise ValueError(
+                f"discard contains fields {excess} without given a type"
+            )
+        names = {
             name
             for name, tobj in typemap.items()
             if not isinstance(tobj, OptionalVarlinkType)
         }
-        if excess := non_optional.intersection(populatenone):
+        if excess := names.intersection(populatenone):
             raise ValueError(
                 f"non-optional fields {excess} must not be listed in "
                 "populatenone"
             )
-        if excess := non_optional.intersection(discardnone):
+        if excess := names.intersection(discardnone):
             raise ValueError(
                 f"non-optional fields {excess} must not be listed in "
                 "discardnone"

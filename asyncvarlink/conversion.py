@@ -534,7 +534,7 @@ class ObjectVarlinkType(VarlinkType):
                         result[key] = None
                     continue
                 raise ConversionError(
-                    f"missing required key {key} in given dict"
+                    f"missing required key {key} in given dict", [key]
                 ) from err
             with ConversionError.context(key):
                 pyvalue = vtype.fromjson(value, oobstate)

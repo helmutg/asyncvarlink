@@ -193,7 +193,7 @@ class FileDescriptor:
         try:
             otherfileno = get_fileno(other)
         except TypeError:
-            return False
+            return NotImplemented
         except ValueError:
             return selffileno is None
         return selffileno == otherfileno
@@ -353,7 +353,7 @@ class FileDescriptorArray(FutureCounted):
     @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FileDescriptorArray):
-            return False
+            return NotImplemented
         if len(self._by_position) != len(other._by_position):
             return False
         return all(

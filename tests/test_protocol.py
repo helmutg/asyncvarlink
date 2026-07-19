@@ -9,14 +9,13 @@ import unittest
 from unittest.mock import Mock
 
 from asyncvarlink import (
-    JSONObject,
-    JSONValue,
     VarlinkBaseProtocol,
     VarlinkMethodCall,
     VarlinkMethodReply,
     VarlinkProtocol,
     VarlinkTransport,
 )
+from asyncvarlink.types import JSONObject, JSONValue
 
 from helpers import defer
 

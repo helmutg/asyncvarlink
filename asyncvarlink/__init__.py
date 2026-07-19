@@ -12,12 +12,63 @@
   from Python type annotations.
 """
 
-from .clientprotocol import *
-from .conversion import *
-from .error import *
-from .interface import *
-from .message import *
-from .protocol import *
-from .serverprotocol import *
-from .types import *
-from .util import *
+from .clientprotocol import VarlinkClientProtocol, VarlinkInterfaceProxy
+
+# Not re-exporting .conversion
+from .error import (
+    GenericVarlinkErrorReply,
+    TypedVarlinkErrorReply,
+    VarlinkErrorReply,
+)
+from .interface import (
+    AnnotatedResult,
+    LastResult,
+    varlinkmethod,
+    varlinksignature,
+    VarlinkMethodSignature,
+    VarlinkInterface,
+)
+from .message import VarlinkMethodCall, VarlinkMethodReply
+from .protocol import VarlinkBaseProtocol, VarlinkProtocol, VarlinkTransport
+from .serverprotocol import (
+    VarlinkInterfaceRegistry,
+    VarlinkServerProtocol,
+    VarlinkInterfaceServerProtocol,
+)
+
+# Not re-exporting .serviceinterface
+from .types import FileDescriptor, FileDescriptorArray
+from .util import (
+    connect_unix_varlink,
+    create_unix_server,
+    get_listen_fd,
+    VarlinkUnixServer,
+)
+
+__all__ = [
+    "AnnotatedResult",
+    "FileDescriptor",
+    "FileDescriptorArray",
+    "GenericVarlinkErrorReply",
+    "LastResult",
+    "TypedVarlinkErrorReply",
+    "VarlinkBaseProtocol",
+    "VarlinkClientProtocol",
+    "VarlinkErrorReply",
+    "VarlinkInterface",
+    "VarlinkInterfaceProxy",
+    "VarlinkInterfaceRegistry",
+    "VarlinkInterfaceServerProtocol",
+    "VarlinkMethodCall",
+    "VarlinkMethodReply",
+    "VarlinkMethodSignature",
+    "VarlinkProtocol",
+    "VarlinkServerProtocol",
+    "VarlinkTransport",
+    "VarlinkUnixServer",
+    "connect_unix_varlink",
+    "create_unix_server",
+    "get_listen_fd",
+    "varlinkmethod",
+    "varlinksignature",
+]

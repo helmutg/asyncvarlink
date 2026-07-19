@@ -9,19 +9,19 @@ import socket
 import unittest
 
 from asyncvarlink import (
-    ConversionError,
     FileDescriptor,
-    override,
     TypedVarlinkErrorReply,
     VarlinkClientProtocol,
     VarlinkInterface,
     VarlinkTransport,
     varlinkmethod,
 )
+from asyncvarlink.conversion import ConversionError
 from asyncvarlink.serviceinterface import (
     PermissionDenied,
     VarlinkServiceInterface,
 )
+from asyncvarlink.types import override
 
 from helpers import async_read_fd, async_send_fds
 

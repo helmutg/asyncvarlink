@@ -9,16 +9,14 @@ import unittest
 import hypothesis
 import hypothesis.strategies as st
 
-from asyncvarlink import (
+from asyncvarlink import FileDescriptor, FileDescriptorArray
+from asyncvarlink.conversion import (
     ConversionError,
     DataclassVarlinkType,
     DictVarlinkType,
     EnumVarlinkType,
-    FileDescriptor,
-    FileDescriptorArray,
     FileDescriptorVarlinkType,
     ForeignVarlinkType,
-    JSONValue,
     ListVarlinkType,
     LiteralVarlinkType,
     ObjectVarlinkType,
@@ -27,6 +25,7 @@ from asyncvarlink import (
     SimpleVarlinkType,
     VarlinkType,
 )
+from asyncvarlink.types import JSONValue
 
 
 @dataclasses.dataclass

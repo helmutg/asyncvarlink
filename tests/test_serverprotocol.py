@@ -13,7 +13,6 @@ from unittest.mock import Mock
 
 from asyncvarlink import (
     FileDescriptor,
-    override,
     TypedVarlinkErrorReply,
     VarlinkInterface,
     VarlinkInterfaceRegistry,
@@ -21,6 +20,7 @@ from asyncvarlink import (
     VarlinkTransport,
     varlinkmethod,
 )
+from asyncvarlink.types import override
 
 from helpers import async_read_fd, async_send_fds, defer
 

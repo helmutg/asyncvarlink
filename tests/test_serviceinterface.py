@@ -3,7 +3,8 @@
 
 import unittest
 
-from asyncvarlink import AnnotatedResult, VarlinkInterfaceRegistry, override
+from asyncvarlink import AnnotatedResult, VarlinkInterfaceRegistry
+from asyncvarlink.types import override
 from asyncvarlink.serviceinterface import (
     InterfaceNotFound,
     VarlinkServiceInterface,

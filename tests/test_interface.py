@@ -40,16 +40,16 @@ class TestInterface(unittest.TestCase):
             def simple(self) -> ResultWrapper:
                 return res("simple")
 
-            @varlinkmethod
-            def annotated(self) -> ResultWrapper:
+            @varlinkmethod(return_type=ResultWrapper)
+            def annotated(self) -> AnnotatedResult:
                 return AnnotatedResult(res("annotated"))
 
             @varlinkmethod(return_parameter="result")
             def named(self) -> str:
                 return "named"
 
-            @varlinkmethod(return_parameter="result")
-            def annotated_named(self) -> str:
+            @varlinkmethod(return_parameter="result", return_type=str)
+            def annotated_named(self) -> AnnotatedResult:
                 return AnnotatedResult(res("annotated_named"))
 
             @varlinkmethod(return_parameter="result")
@@ -60,8 +60,10 @@ class TestInterface(unittest.TestCase):
             def error(self) -> ResultWrapper:
                 raise ExpectedError()
 
-            @varlinkmethod
-            def gen(self) -> collections.abc.Iterator[ResultWrapper]:
+            @varlinkmethod(return_type=ResultWrapper)
+            def gen(
+                self,
+            ) -> collections.abc.Iterator[AnnotatedResult | ResultWrapper]:
                 self.gen_state = 0
                 yield AnnotatedResult(res("gen0"), continues=True)
                 self.gen_state = 1
@@ -77,8 +79,14 @@ class TestInterface(unittest.TestCase):
                 self.genr_state = 1
                 raise LastResult("genr1")
 
-            @varlinkmethod(delay_generator=False, return_parameter="result")
-            def gen_immediate(self) -> collections.abc.Iterator[str]:
+            @varlinkmethod(
+                delay_generator=False,
+                return_parameter="result",
+                return_type=str,
+            )
+            def gen_immediate(
+                self,
+            ) -> collections.abc.Iterator[AnnotatedResult | str]:
                 self.geni_state = 0
                 yield AnnotatedResult(res("geni0"), continues=True)
                 self.geni_state = 1
@@ -169,22 +177,24 @@ class TestAsyncInterface(unittest.IsolatedAsyncioTestCase):
             async def simple(self) -> ResultWrapper:
                 return res("simple")
 
-            @varlinkmethod
-            async def annotated(self) -> ResultWrapper:
+            @varlinkmethod(return_type=ResultWrapper)
+            async def annotated(self) -> AnnotatedResult:
                 return AnnotatedResult(res("annotated"))
 
             @varlinkmethod(return_parameter="result")
             async def named(self) -> str:
                 return "named"
 
-            @varlinkmethod(return_parameter="result")
-            async def annotated_named(self) -> str:
+            @varlinkmethod(return_parameter="result", return_type=str)
+            async def annotated_named(self) -> AnnotatedResult:
                 return AnnotatedResult(res("annotated_named"))
 
-            @varlinkmethod
+            @varlinkmethod(return_type=ResultWrapper)
             async def gen(
                 self,
-            ) -> collections.abc.AsyncIterator[ResultWrapper]:
+            ) -> collections.abc.AsyncIterator[
+                AnnotatedResult | ResultWrapper
+            ]:
                 self.gen_state = 0
                 yield AnnotatedResult(res("gen0"), continues=True)
                 self.gen_state = 1
@@ -200,10 +210,14 @@ class TestAsyncInterface(unittest.IsolatedAsyncioTestCase):
                 self.genr_state = 1
                 raise LastResult("genr1")
 
-            @varlinkmethod(delay_generator=False, return_parameter="result")
+            @varlinkmethod(
+                delay_generator=False,
+                return_parameter="result",
+                return_type=str,
+            )
             async def gen_immediate(
                 self,
-            ) -> collections.abc.AsyncIterator[str]:
+            ) -> collections.abc.AsyncIterator[AnnotatedResult | str]:
                 self.geni_state = 0
                 yield AnnotatedResult(res("geni0"), continues=True)
                 self.geni_state = 1

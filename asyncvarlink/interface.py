@@ -149,11 +149,19 @@ class _VarlinkMethodDecorator(typing.Protocol):
     ) -> collections.abc.Callable[_P, _MethodResultType]: ...
 
 
+class _NotGiven:
+    pass
+
+
+_notgiven = _NotGiven()
+
+
 @typing.overload
 def varlinkmethod(
     function: collections.abc.Callable[_P, collections.abc.AsyncIterator[_R]],
     *,
     return_parameter: str | None = None,
+    return_type: type | _NotGiven = _notgiven,
     delay_generator: bool = True,
     allow_foreign: bool = False,
 ) -> collections.abc.Callable[
@@ -166,6 +174,7 @@ def varlinkmethod(
     function: collections.abc.Callable[_P, collections.abc.Iterator[_R]],
     *,
     return_parameter: str | None = None,
+    return_type: type | _NotGiven = _notgiven,
     delay_generator: bool = True,
     allow_foreign: bool = False,
 ) -> collections.abc.Callable[
@@ -178,6 +187,7 @@ def varlinkmethod(
     function: collections.abc.Callable[_P, collections.abc.Awaitable[_R]],
     *,
     return_parameter: str | None = None,
+    return_type: type | _NotGiven = _notgiven,
     delay_generator: bool = True,
     allow_foreign: bool = False,
 ) -> collections.abc.Callable[
@@ -190,6 +200,7 @@ def varlinkmethod(
     function: collections.abc.Callable[_P, _R],
     *,
     return_parameter: str | None = None,
+    return_type: type | _NotGiven = _notgiven,
     delay_generator: bool = True,
     allow_foreign: bool = False,
 ) -> collections.abc.Callable[_P, _MethodResultType]: ...
@@ -199,6 +210,7 @@ def varlinkmethod(
 def varlinkmethod(
     *,
     return_parameter: str | None = None,
+    return_type: type | _NotGiven = _notgiven,
     delay_generator: bool = True,
     allow_foreign: bool = False,
 ) -> _VarlinkMethodDecorator: ...
@@ -211,6 +223,7 @@ def varlinkmethod(
     function: collections.abc.Callable[_P, _R] | None = None,
     *,
     return_parameter: str | None = None,
+    return_type: type | _NotGiven = _notgiven,
     delay_generator: bool = True,
     allow_foreign: bool = False,
 ) -> (
@@ -228,6 +241,12 @@ def varlinkmethod(
     AnnotatedResult instances. If return_parameter is None, it may produce a
     dict and a bare value to be wrapped in a dict with return_parameter as key
     otherwise.
+
+    To enable implementations to return or yield AnnotatedResult objects, they
+    may be annotated as returning AnnotatedResult or generators thereof and
+    pass the type annotation used for introspection via the return_type
+    parameter. Note that the return_type should be the element type for
+    generators.
 
     If the function is a generator (async or not), AnnotatedResult instances
     are forwarded immediately. They must correctly indicate whether the
@@ -256,9 +275,9 @@ def varlinkmethod(
             raise RuntimeError(
                 "first argument of a method should be named self"
             )
-        return_type = signature.return_annotation
+        return_pytype = signature.return_annotation
         more = False
-        ret_origin = typing.get_origin(return_type)
+        ret_origin = typing.get_origin(return_pytype)
         if ret_origin is not None and issubclass(
             ret_origin,
             (
@@ -267,24 +286,26 @@ def varlinkmethod(
                 else collections.abc.Iterator
             ),
         ):
-            return_type = typing.get_args(return_type)[0]
+            return_pytype = typing.get_args(return_pytype)[0]
             more = True
         return_vtype: VarlinkType
         make_result: collections.abc.Callable[[_R], AnnotatedResult]
-        if return_type is None:
+        if return_type is not _notgiven:
+            return_pytype = return_type
+        if return_pytype is None:
             return_vtype = ObjectVarlinkType({})
 
             def make_result(_result: _R) -> AnnotatedResult:
                 return AnnotatedResult({})
 
         else:
-            return_vtype = VarlinkType.from_type_annotation(return_type)
+            return_vtype = VarlinkType.from_type_annotation(return_pytype)
             if (not allow_foreign) and any(
                 isinstance(vt, ForeignVarlinkType)
                 for vt in return_vtype.traverse()
             ):
                 raise TypeError(
-                    f"Use of foreign not enabled for return type {return_type!r}"
+                    f"Use of foreign not enabled for return type {return_pytype!r}"
                 )
             if return_parameter is not None:
                 return_vtype = ObjectVarlinkType(

@@ -42,7 +42,9 @@ Typically, the life time of such an array is fairly limited, but it can be exten
 Additionally, individual file descriptors may be removed from the array using the ``FileDescriptor.take`` method.
 When doing so, responsibility for closing a taken file descriptor is transferred to the caller.
 If using the ``VarlinkInterfaceServerProtocol`` or ``VarlinkInterfaceProxy``, the ``FileDescriptorArray`` object is no longer exposed and the array life time is managed implicitly.
-On the server side, file descriptors remain valid until the m
+On the server side, the array remains valid until the handling method of the ``VarlinkInterface`` implementation returns.
+When returning file descriptors from such methods, the array is constructed internally and all relevant descriptors must be wrapped using ``FileDescriptor``.
+The server will invoke ``.release`` on the ``FileDescriptor`` objects after sending and thus close those that were constructed with ``should_close = True``.
 
 The type conversion between JSON and Python objects is mostly straight forward.
 Basic types such as ``bool``, ``int``, ``float`` and ``str`` map trivially.

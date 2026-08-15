@@ -4,7 +4,7 @@ Usage
 Installation
 ------------
 
-At present, the project is not on PyPi, but you can install it from git.
+The project is regularly published to PyPI, but you can also install it from git.
 
 .. code-block:: console
 

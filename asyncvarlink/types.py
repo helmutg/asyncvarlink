@@ -422,7 +422,7 @@ def validate_interface(interface: str) -> None:
     ValueError.
     """
     if not re.match(
-        r"[A-Za-z](?:-*[A-Za-z0-9])*(?:\.[A-Za-z0-9](?:-*[A-Za-z0-9])*)+",
+        r"^[A-Za-z](?:-*[A-Za-z0-9])*(?:\.[A-Za-z0-9](?:-*[A-Za-z0-9])*)+$",
         interface,
     ):
         raise ValueError(f"invalid varlink interface {interface!r}")

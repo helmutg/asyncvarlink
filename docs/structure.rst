@@ -7,7 +7,7 @@ For one thing, varlink can communicate over pipes where sending and receiving ha
 For another, this library implements file descriptor passing (over sockets) and most transport classes don't do that.
 As a result, the ``VarlinkBaseProtocol`` hierarchy only works with ``VarlinkTransport`` transport objects.
 Where usual transports use ``write`` and usual protocols use ``data_received``, these classes use ``VarlinkTransport.send_message`` and ``VarlinkBaseProtocol.message_received`` instead.
-As a result transport methods ``pause_reading`` and ``resume_reading`` are called ``pause_receiving`` and ``resume_receiving``.
+As a result transport methods ``pause_reading`` and ``resume_reading`` have been retained with unchanged semantics.
 Other methods such as ``close`` and ``is_closing`` work as with a more common transport.
 On the protocol side, ``connection_made`` and ``eof_received`` and ``connection_lost`` have the usual protocol semantics.
 The ``VarlinkProtocol`` class implements the lowest level of parsing and consumes and produces arbitrary JSON objects combined with file descriptors.

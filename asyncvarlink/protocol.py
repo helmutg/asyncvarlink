@@ -340,7 +340,7 @@ class VarlinkTransport(asyncio.BaseTransport):
                 if sent >= len(data[0]):
                     sent -= len(data.pop(0))
                 else:
-                    data[0] = data[0][:sent]
+                    data[0] = data[0][sent:]
                     sent = 0
             if data:
                 self._sendqueue.appendleft((data, [], fut))

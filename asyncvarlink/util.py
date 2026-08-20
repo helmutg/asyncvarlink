@@ -201,7 +201,7 @@ async def create_unix_server(
         pathstr = os.fspath(path)
         socktype = socket.SOCK_STREAM | socket.SOCK_NONBLOCK
         if not inheritable:
-            socktype |= socket.SOCK_NONBLOCK
+            socktype |= socket.SOCK_CLOEXEC
         sock = socket.socket(socket.AF_UNIX, socktype)
         if not pathstr.startswith("\0"):
             try:

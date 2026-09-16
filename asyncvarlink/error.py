@@ -68,6 +68,12 @@ class GenericVarlinkErrorReply(VarlinkErrorReply):
         return self.parameters
 
     @override
+    def __str__(self) -> str:
+        if not self.parameters:
+            return self.name
+        return f"{self.name}: {self.parameters!r}"
+
+    @override
     def __repr__(self) -> str:
         if not self.parameters:
             return f"{self.__class__.__name__}({self.name!r})"

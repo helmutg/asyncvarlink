@@ -78,10 +78,10 @@ async def connect_unix_varlink(
     sock = socket.socket(socket.AF_UNIX, socktype)
     try:
         await loop.sock_connect(sock, os.fspath(path))
+        protocol = protocol_factory()
     except:
         sock.close()
         raise
-    protocol = protocol_factory()
     transport = VarlinkTransport(loop, sock, sock, protocol)
     await asyncio.sleep(0)  # wait for all call_soon
     return transport, protocol

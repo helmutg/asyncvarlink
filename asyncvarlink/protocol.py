@@ -193,10 +193,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             for fd in fds:
                 os.close(fd)
             self._loop.remove_reader(self._recvfd)
-            try:
-                self._protocol.eof_received()
-            finally:
-                self._close_receiver()
+            self._loop.call_soon(self._eof_received)
 
     def _handle_read_fd(self) -> None:
         assert self._recvfd is not None
@@ -215,10 +212,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._protocol.message_received(data, None)
         else:
             self._loop.remove_reader(self._recvfd)
-            try:
-                self._protocol.eof_received()
-            finally:
-                self._close_receiver()
+            self._loop.call_soon(self._eof_received)
 
     def pause_reading(self) -> None:
         """Pause receiving messages. No data will be passed to the protocol's
@@ -362,6 +356,12 @@ class VarlinkTransport(asyncio.BaseTransport):
         assert not fds
         assert self._sendfd is not None
         return os.writev(self._sendfd.fileno(), data)
+
+    def _eof_received(self) -> None:
+        try:
+            self._protocol.eof_received()
+        finally:
+            self._close_receiver()
 
     def _connection_lost(self) -> None:
         try:

@@ -113,6 +113,10 @@ class VarlinkTransport(asyncio.BaseTransport):
         super().__init__(extra)
         self._loop = loop
         self._recvfd: HasFilenoAndClose | None = _check_socket(recvfd)
+        if isinstance(self._recvfd, socket.socket):
+            self._handle_read = self._handle_read_socket
+        else:
+            self._handle_read = self._handle_read_fd
         self._paused = True
         os.set_blocking(self._recvfd.fileno(), False)
         self._sendfd: HasFilenoAndClose | None
@@ -239,14 +243,9 @@ class VarlinkTransport(asyncio.BaseTransport):
         if self._closing or self._recvfd is None or not self._paused:
             return
         self._paused = False
-        if isinstance(self._recvfd, socket.socket):
-            self._loop.call_soon(
-                self._loop.add_reader, self._recvfd, self._handle_read_socket
-            )
-        else:
-            self._loop.call_soon(
-                self._loop.add_reader, self._recvfd, self._handle_read_fd
-            )
+        self._loop.call_soon(
+            self._loop.add_reader, self._recvfd, self._handle_read
+        )
 
     def resume_receiving(self) -> None:
         """Deprecated alias of resume_reading."""

@@ -81,6 +81,18 @@ def _check_socket(thing: socket.socket | int | HasFileno) -> HasFilenoAndClose:
     return sock
 
 
+def varlink_boundaries(data: bytes) -> list[int]:
+    """Return the lengths of message chunks for the varlink protocol in the
+    supplied data.
+    """
+    parts = data.split(b"\0")
+    if parts:
+        # If data ends with a nul byte, we are popping an empty string.
+        # Otherwise, the incomplete chunk is popped.
+        parts.pop()
+    return [len(part) + 1 for part in parts]
+
+
 _BLOCKING_ERRNOS = frozenset((errno.EWOULDBLOCK, errno.EAGAIN))
 
 
@@ -112,12 +124,21 @@ class VarlinkTransport(asyncio.BaseTransport):
         sendfd: socket.socket | int | HasFileno,
         protocol: VarlinkBaseProtocol,
         extra: collections.abc.Mapping[str, typing.Any] | None = None,
+        *,
+        boundary_predictor: (
+            collections.abc.Callable[[bytes], list[int]] | None
+        ) = varlink_boundaries,
     ):
         super().__init__(extra)
         self._loop = loop
         self._recvfd: HasFilenoAndClose | None = _check_socket(recvfd)
+        self._boundary_predictor = boundary_predictor
+        self._peeked_boundaries: list[int] = []
         if isinstance(self._recvfd, socket.socket):
-            self._handle_read = self._handle_read_socket
+            if boundary_predictor is None:
+                self._handle_read = self._handle_read_socket
+            else:
+                self._handle_read = self._handle_read_socket_peek
         else:
             self._handle_read = self._handle_read_fd
         self._paused = True
@@ -174,21 +195,21 @@ class VarlinkTransport(asyncio.BaseTransport):
         if loose_connection:
             self._loop.call_soon(self._connection_lost)
 
-    def _handle_read_socket(self) -> None:
+    def _sock_receive_fds(self, size: int) -> int:
         assert isinstance(self._recvfd, socket.socket)
         try:
             msg, fds, _flags, _addr = socket.recv_fds(
-                self._recvfd, self.RECV_BUFFER_SIZE, self.MAX_RECV_FDS
+                self._recvfd, size, self.MAX_RECV_FDS
             )
         except OSError as err:
             if err.errno in _BLOCKING_ERRNOS:
-                return
+                return 0
             _logger.debug(
                 "%r: reading from socket failed", self, exc_info=True
             )
             self._loop.remove_reader(self._recvfd)
             self._close_receiver()
-            return
+            return 0
         if msg:
             ownedfds = FileDescriptorArray(_SENTINEL, fds) if fds else None
             try:
@@ -201,6 +222,44 @@ class VarlinkTransport(asyncio.BaseTransport):
                 os.close(fd)
             self._loop.remove_reader(self._recvfd)
             self._loop.call_soon(self._eof_received)
+        return len(msg)
+
+    def _handle_read_socket(self) -> None:
+        self._sock_receive_fds(self.MAX_RECV_FDS)
+
+    def _handle_read_socket_peek(self) -> None:
+        assert isinstance(self._recvfd, socket.socket)
+        assert self._boundary_predictor is not None
+
+        while True:
+            if self._peeked_boundaries:
+                received = self._sock_receive_fds(self._peeked_boundaries[0])
+                if received:
+                    self._peeked_boundaries[0] -= received
+                    if self._peeked_boundaries[0] <= 0:
+                        del self._peeked_boundaries[0]
+                else:
+                    break
+            else:
+                # In order to correctly associate fds with data, we must first
+                # figure out message boundaries and then receive appropriately
+                # sized chunks.
+                try:
+                    data = self._recvfd.recv(
+                        self.RECV_BUFFER_SIZE, socket.MSG_PEEK
+                    )
+                except OSError as err:
+                    if err.errno in _BLOCKING_ERRNOS:
+                        return
+                    _logger.debug(
+                        "%r: peeking at socket failed", self, exc_info=True
+                    )
+                    self._loop.remove_reader(self._recvfd)
+                    self._close_receiver()
+                else:
+                    self._peeked_boundaries = self._boundary_predictor(data)
+                    if not self._peeked_boundaries:
+                        self._peeked_boundaries.append(self.RECV_BUFFER_SIZE)
 
     def _handle_read_fd(self) -> None:
         assert self._recvfd is not None

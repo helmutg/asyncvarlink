@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import Mock
 
 from asyncvarlink import (
+    FileDescriptorArray,
     VarlinkBaseProtocol,
     VarlinkMethodCall,
     VarlinkMethodReply,
@@ -93,6 +94,40 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             fut3 = transport.send_message(b"fail")
             with self.assertRaises(OSError):
                 fut3.result()
+
+    async def test_fd_association(self) -> None:
+        protocol = VarlinkBaseProtocol()
+        protocol.message_received = Mock(return_value=None)
+        with contextlib.ExitStack() as stack:
+            sock1, sock2 = socket.socketpair()
+            stack.callback(sock1.close)
+            stack.callback(sock2.close)
+            fd_to_send = os.open("/dev/null", os.O_RDONLY)
+            stack.callback(os.close, fd_to_send)
+
+            transport = VarlinkTransport(
+                asyncio.get_running_loop(),
+                sock1,
+                sock1,
+                protocol,
+            )
+
+            socket.send_fds(sock2, [b"1\0"], [])
+            socket.send_fds(sock2, [b"2\0"], [fd_to_send])
+
+            await defer(until_called=protocol.message_received)
+            protocol.message_received.assert_called()
+            self.assertEqual(
+                unittest.mock.call(b"1\0", None),
+                protocol.message_received.call_args_list[0],
+            )
+            if protocol.message_received.call_count < 2:
+                protocol.message_received.reset_mock()
+                await defer(until_called=protocol.message_received)
+                protocol.message_received.assert_called()
+            call2_data, call2_fds = protocol.message_received.call_args.args
+            self.assertEqual(b"2\0", call2_data)
+            self.assertSequenceEqual([unittest.mock.ANY], call2_fds)
 
 
 class ProtocolTests(unittest.IsolatedAsyncioTestCase):

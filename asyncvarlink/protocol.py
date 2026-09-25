@@ -98,6 +98,9 @@ class VarlinkTransport(asyncio.BaseTransport):
     varlink message.
     """
 
+    RECV_BUFFER_SIZE = 4096
+    """The buffer size used for receiving message data."""
+
     closed_future: asyncio.Future[None]
     """A future that becomes ready once the transport is closed."""
 
@@ -175,7 +178,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         assert isinstance(self._recvfd, socket.socket)
         try:
             msg, fds, _flags, _addr = socket.recv_fds(
-                self._recvfd, 4096, self.MAX_RECV_FDS
+                self._recvfd, self.RECV_BUFFER_SIZE, self.MAX_RECV_FDS
             )
         except OSError as err:
             if err.errno in _BLOCKING_ERRNOS:
@@ -202,7 +205,7 @@ class VarlinkTransport(asyncio.BaseTransport):
     def _handle_read_fd(self) -> None:
         assert self._recvfd is not None
         try:
-            data = os.read(self._recvfd.fileno(), 4096)
+            data = os.read(self._recvfd.fileno(), self.RECV_BUFFER_SIZE)
         except OSError as err:
             if err.errno in _BLOCKING_ERRNOS:
                 return

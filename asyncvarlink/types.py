@@ -8,6 +8,7 @@ import collections.abc
 import contextlib
 import os
 import re
+import sys
 import typing
 import warnings
 
@@ -24,7 +25,7 @@ __all__ = [
     "validate_name",
 ]
 
-if typing.TYPE_CHECKING:
+if sys.version_info >= (3, 12):
     from typing import override
 else:
 

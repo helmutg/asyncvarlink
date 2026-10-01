@@ -266,7 +266,7 @@ def varlinkmethod(
 
     def wrap(
         function: collections.abc.Callable[_P, _R],
-    ) -> collections.abc.Callable[_P, AnnotatedResult]:
+    ) -> collections.abc.Callable[_P, _MethodResultType]:
         asynchronous = inspect.iscoroutinefunction(function)
         asyncgen = inspect.isasyncgenfunction(function)
         signature = inspect.signature(function)

@@ -425,13 +425,13 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._close_receiver()
 
     def _connection_lost(self) -> None:
+        assert self._closing
         try:
             self._protocol.connection_lost(None)
         finally:
             self._close_receiver()
             if not self._sendqueue:
                 self._close_sender()
-            assert self._closing
             self.closed_future.set_result(None)
 
     @override

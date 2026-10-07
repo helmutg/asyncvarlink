@@ -55,18 +55,15 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         protocol.eof_received.assert_called_once_with()
 
     async def test_receive_pipe(self) -> None:
+        loop = asyncio.get_running_loop()
         protocol = VarlinkBaseProtocol()
         protocol.message_received = Mock(return_value=None)
         pipe1, pipe2 = os.pipe()
-        try:
-            VarlinkTransport(
-                asyncio.get_running_loop(), pipe1, pipe2, protocol
-            )
+        with contextlib.closing(
+            VarlinkTransport(loop, pipe1, pipe2, protocol)
+        ):
             os.write(pipe2, b"hello")
             await defer(until_called=protocol.message_received)
-        finally:
-            os.close(pipe2)
-            os.close(pipe1)
         protocol.message_received.assert_called_once_with(b"hello", None)
 
     async def test_receive_pipe_eof(self) -> None:
@@ -133,43 +130,38 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
 
 class ProtocolTests(unittest.IsolatedAsyncioTestCase):
     async def test_receive(self) -> None:
+        loop = asyncio.get_running_loop()
         protocol = VarlinkProtocol()
         pipe1, pipe2 = os.pipe()
-        try:
-            VarlinkTransport(
-                asyncio.get_running_loop(), pipe1, pipe2, protocol
-            )
+        with contextlib.closing(
+            VarlinkTransport(loop, pipe1, pipe2, protocol)
+        ):
             protocol.request_received = Mock()
             protocol.message_received(b'{"hello":"world"}\0', None)
             await defer(until_called=protocol.request_received)
             protocol.request_received.assert_called_once_with(
                 {"hello": "world"}, None
             )
-        finally:
-            os.close(pipe2)
-            os.close(pipe1)
 
     async def test_receive_error(self) -> None:
+        loop = asyncio.get_running_loop()
         protocol = VarlinkProtocol()
         pipe1, pipe2 = os.pipe()
-        try:
-            VarlinkTransport(
-                asyncio.get_running_loop(), pipe1, pipe2, protocol
-            )
+        with contextlib.closing(
+            VarlinkTransport(loop, pipe1, pipe2, protocol)
+        ):
             protocol.error_received = Mock(wraps=protocol.error_received)
             protocol.message_received(b"}\0", None)
             await defer(until_called=protocol.error_received)
             protocol.error_received.assert_called_once()
-        finally:
-            os.close(pipe2)
-            os.close(pipe1)
 
     async def test_receive_pause(self) -> None:
         loop = asyncio.get_running_loop()
         protocol = VarlinkProtocol()
         pipe1, pipe2 = os.pipe()
-        try:
-            transport = VarlinkTransport(loop, pipe1, pipe2, protocol)
+        with contextlib.closing(
+            VarlinkTransport(loop, pipe1, pipe2, protocol)
+        ) as transport:
             futs = [loop.create_future(), loop.create_future()]
             protocol.request_received = Mock(side_effect=futs)
             await asyncio.sleep(0)
@@ -188,17 +180,14 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             futs[1].set_result(None)
             await asyncio.sleep(0)
             self.assertFalse(transport._paused)
-        finally:
-            os.close(pipe2)
-            os.close(pipe1)
 
     async def test_receive_multiple(self) -> None:
+        loop = asyncio.get_running_loop()
         protocol = VarlinkProtocol()
         pipe1, pipe2 = os.pipe()
-        try:
-            VarlinkTransport(
-                asyncio.get_running_loop(), pipe1, pipe2, protocol
-            )
+        with contextlib.closing(
+            VarlinkTransport(loop, pipe1, pipe2, protocol)
+        ):
             protocol.request_received = Mock()
             await asyncio.sleep(0)
             protocol.message_received(b'{"a":0}\0{"b":0}\0', None)
@@ -206,9 +195,6 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             protocol.request_received.assert_called_once_with({"a": 0}, None)
             await asyncio.sleep(0)
             protocol.request_received.assert_called_with({"b": 0}, None)
-        finally:
-            os.close(pipe2)
-            os.close(pipe1)
 
     async def test_send(self) -> None:
         loop = asyncio.get_running_loop()
@@ -216,8 +202,10 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
         sock1, sock2 = socket.socketpair(
             type=socket.SOCK_STREAM | socket.SOCK_NONBLOCK
         )
-        with contextlib.closing(sock1), contextlib.closing(sock2):
-            VarlinkTransport(loop, sock1, sock1, protocol)
+        with (
+            contextlib.closing(VarlinkTransport(loop, sock1, sock1, protocol)),
+            contextlib.closing(sock2),
+        ):
             await asyncio.sleep(0)
             protocol.send_message({"hello": "world"}, [])
             self.assertEqual(

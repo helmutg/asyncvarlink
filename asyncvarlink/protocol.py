@@ -165,7 +165,7 @@ class VarlinkTransport(asyncio.BaseTransport):
         self._closing = False
         self.set_protocol(protocol)
         self._loop.call_soon(self._protocol.connection_made, self)
-        self._loop.call_soon(self.resume_reading)
+        self._loop.call_soon(self._resume_reading)
         self.closed_future = self._loop.create_future()
 
     @override
@@ -298,16 +298,19 @@ class VarlinkTransport(asyncio.BaseTransport):
         )
         self.pause_reading()
 
+    def _resume_reading(self) -> None:
+        if self._closing or self._recvfd is None or not self._paused:
+            return
+        self._paused = False
+        self._loop.add_reader(self._recvfd, self._handle_read)
+
     def resume_reading(self) -> None:
         """Resume receiving messages. Received messages will be passed to the
         protocol's message_received method again.
         """
         if self._closing or self._recvfd is None or not self._paused:
             return
-        self._paused = False
-        self._loop.call_soon(
-            self._loop.add_reader, self._recvfd, self._handle_read
-        )
+        self._loop.call_soon(self._resume_reading)
 
     def resume_receiving(self) -> None:
         """Deprecated alias of resume_reading."""

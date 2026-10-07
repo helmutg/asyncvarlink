@@ -164,21 +164,21 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
         ) as transport:
             futs = [loop.create_future(), loop.create_future()]
             protocol.request_received = Mock(side_effect=futs)
-            await asyncio.sleep(0)
+            await defer()
             self.assertFalse(transport._paused)
             protocol.message_received(b'{"a":0}\0{"b":0}\0', None)
-            await asyncio.sleep(0)
+            await defer()
             self.assertTrue(transport._paused)
             protocol.request_received.assert_called_once_with({"a": 0}, None)
             self.assertTrue(transport._paused)
             futs[0].set_result(None)
-            await asyncio.sleep(0)
+            await defer()
             self.assertTrue(transport._paused)
             protocol.request_received.assert_called_with({"b": 0}, None)
-            await asyncio.sleep(0)
+            await defer()
             self.assertTrue(transport._paused)
             futs[1].set_result(None)
-            await asyncio.sleep(0)
+            await defer()
             self.assertFalse(transport._paused)
 
     async def test_receive_multiple(self) -> None:

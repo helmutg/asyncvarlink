@@ -92,6 +92,9 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             fut3 = transport.send_message(b"fail")
             with self.assertRaises(OSError):
                 fut3.result()
+            # transport.close can defer closing, but we want it to complete
+            # before exiting the context to avoid exceptions in callbacks.
+            await transport.closed_future
 
     async def test_fd_association(self) -> None:
         protocol = VarlinkBaseProtocol()

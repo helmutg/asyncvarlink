@@ -10,7 +10,6 @@ import secrets
 import socket
 import sys
 import typing
-import unittest
 
 if __file__.split("/")[-2:-1] == ["tests"]:
     sys.path.insert(0, "/".join(__file__.split("/")[:-2]))
@@ -26,6 +25,8 @@ from asyncvarlink import (
     VarlinkTransport,
 )
 from asyncvarlink.serviceinterface import VarlinkServiceInterface
+
+from helpers import StrictAsyncioTestCase
 
 
 class ResultTest05(typing.TypedDict):
@@ -314,7 +315,7 @@ async def selftest() -> None:
     st.close()
 
 
-class CertificationTests(unittest.IsolatedAsyncioTestCase):
+class CertificationTests(StrictAsyncioTestCase):
     async def test_self(self) -> None:
         await selftest()
 

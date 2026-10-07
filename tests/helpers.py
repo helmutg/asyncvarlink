@@ -4,7 +4,10 @@
 import asyncio
 import os
 import socket
+import unittest
 import unittest.mock
+
+from asyncvarlink.types import override
 
 
 def async_read_fd(fd: int, size: int) -> asyncio.Future[bytes]:
@@ -61,3 +64,37 @@ async def defer(
         if until_called is not None and until_called.called:
             return
         await asyncio.sleep(0)
+
+
+class StrictAsyncioTestCase(unittest.IsolatedAsyncioTestCase):
+    """Allow writing asyncio-based test cases like
+    unittest.IsolatedAsyncioTestCase, but also fail if any exception escapes
+    from a callback.
+    """
+
+    def _exception_handler(
+        self, loop: asyncio.AbstractEventLoop, context: dict[str, object]
+    ) -> None:
+        self._observed_exceptions.append(context)
+
+    @override
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self._observed_exceptions: list[dict[str, object]] = []
+        asyncio.get_running_loop().set_exception_handler(
+            self._exception_handler
+        )
+
+    @override
+    async def asyncTearDown(self) -> None:
+        count = len(self._observed_exceptions)
+        if count > 0:
+            if count == 1:
+                self.fail(
+                    f"An exception escaped from a callback: {self._observed_exceptions[0]!r}"
+                )
+            else:
+                self.fail(
+                    f"{count} exceptions escaped from callbacks {self._observed_exceptions!r}"
+                )
+        await super().asyncTearDown()

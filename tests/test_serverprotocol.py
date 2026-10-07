@@ -8,7 +8,6 @@ import json
 import os
 import socket
 import typing
-import unittest
 from unittest.mock import Mock
 
 from asyncvarlink import (
@@ -22,7 +21,7 @@ from asyncvarlink import (
 )
 from asyncvarlink.types import override
 
-from helpers import async_read_fd, async_send_fds, defer
+from helpers import async_read_fd, async_send_fds, defer, StrictAsyncioTestCase
 
 
 class DemoError(TypedVarlinkErrorReply, interface="com.example.demo"):
@@ -102,7 +101,7 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
         return None
 
 
-class ServerTests(unittest.IsolatedAsyncioTestCase):
+class ServerTests(StrictAsyncioTestCase):
     @override
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()

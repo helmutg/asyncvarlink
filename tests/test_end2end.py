@@ -3,7 +3,6 @@
 
 import contextlib
 import tempfile
-import unittest
 
 from asyncvarlink import (
     VarlinkClientProtocol,
@@ -13,6 +12,8 @@ from asyncvarlink import (
     create_unix_server,
     varlinkmethod,
 )
+
+from helpers import StrictAsyncioTestCase
 
 
 class DummyInterface(VarlinkInterface, name="com.example.Dummy"):
@@ -25,7 +26,7 @@ class DummyInterface(VarlinkInterface, name="com.example.Dummy"):
         return "returnvalue"
 
 
-class End2EndTests(unittest.IsolatedAsyncioTestCase):
+class End2EndTests(StrictAsyncioTestCase):
     async def test_end2end(self) -> None:
         registry = VarlinkInterfaceRegistry()
         interface = DummyInterface()

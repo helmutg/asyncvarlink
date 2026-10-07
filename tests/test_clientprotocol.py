@@ -6,7 +6,6 @@ import collections.abc
 import json
 import os
 import socket
-import unittest
 
 from asyncvarlink import (
     FileDescriptor,
@@ -23,7 +22,7 @@ from asyncvarlink.serviceinterface import (
 )
 from asyncvarlink.types import override
 
-from helpers import async_read_fd, async_send_fds
+from helpers import async_read_fd, async_send_fds, StrictAsyncioTestCase
 
 
 class DemoFailure(TypedVarlinkErrorReply):
@@ -46,7 +45,7 @@ class DemoInterface(VarlinkInterface, name="com.example.demo"):
     def CreateFd(self) -> FileDescriptor: ...
 
 
-class ClientTests(unittest.IsolatedAsyncioTestCase):
+class ClientTests(StrictAsyncioTestCase):
     @override
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
@@ -202,7 +201,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await read_fut, b"needle")
 
 
-class ClientPipeTests(unittest.IsolatedAsyncioTestCase):
+class ClientPipeTests(StrictAsyncioTestCase):
     @override
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()

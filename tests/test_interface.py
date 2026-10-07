@@ -12,6 +12,8 @@ from asyncvarlink.interface import (
     varlinkmethod,
 )
 
+from helpers import StrictAsyncioTestCase
+
 
 class ResultWrapper(typing.TypedDict):
     result: str
@@ -163,7 +165,7 @@ class TestInterface(unittest.TestCase):
         iface.optional()
 
 
-class TestAsyncInterface(unittest.IsolatedAsyncioTestCase):
+class TestAsyncInterface(StrictAsyncioTestCase):
     async def test_async(self) -> None:
         class AsyncInterface(VarlinkInterface):
             name = "com.example.AsyncInterface"

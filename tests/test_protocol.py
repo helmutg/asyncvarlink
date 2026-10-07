@@ -18,10 +18,10 @@ from asyncvarlink import (
 )
 from asyncvarlink.types import JSONObject, JSONValue
 
-from helpers import defer
+from helpers import defer, StrictAsyncioTestCase
 
 
-class TransportTests(unittest.IsolatedAsyncioTestCase):
+class TransportTests(StrictAsyncioTestCase):
     async def test_receive_socket(self) -> None:
         protocol = VarlinkBaseProtocol()
         protocol.message_received = Mock(return_value=None)
@@ -130,7 +130,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             self.assertSequenceEqual([unittest.mock.ANY], call2_fds)
 
 
-class ProtocolTests(unittest.IsolatedAsyncioTestCase):
+class ProtocolTests(StrictAsyncioTestCase):
     async def test_receive(self) -> None:
         loop = asyncio.get_running_loop()
         protocol = VarlinkProtocol()

@@ -6,6 +6,7 @@ import contextlib
 import os
 import socket
 import unittest
+import unittest.mock
 from unittest.mock import Mock
 
 from asyncvarlink import (

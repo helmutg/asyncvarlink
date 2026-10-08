@@ -256,10 +256,10 @@ class VarlinkTransport(asyncio.BaseTransport):
                     )
                     self._loop.remove_reader(self._recvfd)
                     self._close_receiver()
-                else:
-                    self._peeked_boundaries = self._boundary_predictor(data)
-                    if not self._peeked_boundaries:
-                        self._peeked_boundaries.append(self.RECV_BUFFER_SIZE)
+                    return
+                self._peeked_boundaries = self._boundary_predictor(data)
+                if not self._peeked_boundaries:
+                    self._peeked_boundaries.append(self.RECV_BUFFER_SIZE)
 
     def _handle_read_fd(self) -> None:
         assert self._recvfd is not None

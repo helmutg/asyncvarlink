@@ -53,6 +53,21 @@ class TransportTests(StrictAsyncioTestCase):
             await defer(until_called=protocol.eof_received)
         protocol.eof_received.assert_called_once_with()
 
+    async def test_receive_socket_peek_reset(self) -> None:
+        loop = asyncio.get_running_loop()
+        protocol = VarlinkBaseProtocol()
+        sock1, sock2 = socket.socketpair()
+        with contextlib.closing(
+            VarlinkTransport(loop, sock1, sock1, protocol)
+        ) as transport:
+            await defer()
+            # Closing a socket with unread data makes its peer's next
+            # receive fail with ECONNRESET.
+            sock1.send(b"hello")
+            sock2.close()
+            await defer()
+        await transport.closed_future
+
     async def test_receive_pipe(self) -> None:
         loop = asyncio.get_running_loop()
         protocol = VarlinkBaseProtocol()

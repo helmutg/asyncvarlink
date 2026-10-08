@@ -209,7 +209,7 @@ class ConversionTests(unittest.TestCase):
             pass
 
     def test_invalid(self) -> None:
-        testcases: list[tuple[type, list[JSONValue], list[typing.Any]]] = [
+        testcases: list[tuple[object, list[JSONValue], list[typing.Any]]] = [
             (bool, ["fuzzy"], ["fuzzy"]),
             (int, [2.5], [2.5]),
             (float, ["fuzzy", 1 << 9999], ["fuzzy"]),

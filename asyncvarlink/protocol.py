@@ -177,11 +177,16 @@ class VarlinkTransport(asyncio.BaseTransport):
     def get_protocol(self) -> VarlinkBaseProtocol:
         return self._protocol
 
-    def _close_receiver(self) -> None:
+    def _close_receiver(self, exc: Exception | None = None) -> None:
+        """Close the receiving side. Without an exception, the connection is
+        lost only once both sides are closed, so the peer may half-close it.
+        An exception means the peer is gone, so the connection is lost now
+        and the protocol is told why.
+        """
         if self._recvfd is None:
             return
         loose_connection = False
-        if self._sendfd is None:
+        if self._sendfd is None or exc is not None:
             loose_connection = not self._closing
             self._closing = True
         if not self._paused:
@@ -193,7 +198,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             self._recvfd.close()
         self._recvfd = None
         if loose_connection:
-            self._loop.call_soon(self._connection_lost)
+            self._loop.call_soon(self._connection_lost, exc)
 
     def _sock_receive_fds(self, size: int) -> int:
         assert isinstance(self._recvfd, socket.socket)
@@ -207,8 +212,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             _logger.debug(
                 "%r: reading from socket failed", self, exc_info=True
             )
-            self._loop.remove_reader(self._recvfd)
-            self._close_receiver()
+            self._close_receiver(err)
             return 0
         if msg:
             ownedfds = FileDescriptorArray(_SENTINEL, fds) if fds else None
@@ -254,12 +258,11 @@ class VarlinkTransport(asyncio.BaseTransport):
                     _logger.debug(
                         "%r: peeking at socket failed", self, exc_info=True
                     )
-                    self._loop.remove_reader(self._recvfd)
-                    self._close_receiver()
-                else:
-                    self._peeked_boundaries = self._boundary_predictor(data)
-                    if not self._peeked_boundaries:
-                        self._peeked_boundaries.append(self.RECV_BUFFER_SIZE)
+                    self._close_receiver(err)
+                    return
+                self._peeked_boundaries = self._boundary_predictor(data)
+                if not self._peeked_boundaries:
+                    self._peeked_boundaries.append(self.RECV_BUFFER_SIZE)
 
     def _handle_read_fd(self) -> None:
         assert self._recvfd is not None
@@ -271,8 +274,7 @@ class VarlinkTransport(asyncio.BaseTransport):
             _logger.debug(
                 "%r: reading from socket failed", self, exc_info=True
             )
-            self._loop.remove_reader(self._recvfd)
-            self._close_receiver()
+            self._close_receiver(err)
             return
         if data:
             self._protocol.message_received(data, None)
@@ -427,10 +429,10 @@ class VarlinkTransport(asyncio.BaseTransport):
         finally:
             self._close_receiver()
 
-    def _connection_lost(self) -> None:
+    def _connection_lost(self, exc: Exception | None = None) -> None:
         assert self._closing
         try:
-            self._protocol.connection_lost(None)
+            self._protocol.connection_lost(exc)
         finally:
             self._close_receiver()
             if not self._sendqueue:

@@ -10,7 +10,6 @@ import unittest.mock
 from unittest.mock import Mock
 
 from asyncvarlink import (
-    FileDescriptorArray,
     VarlinkBaseProtocol,
     VarlinkMethodCall,
     VarlinkMethodReply,

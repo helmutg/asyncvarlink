@@ -16,6 +16,7 @@ from asyncvarlink import (
     VarlinkProtocol,
     VarlinkTransport,
 )
+from asyncvarlink.protocol import varlink_boundaries
 from asyncvarlink.types import JSONObject, JSONValue
 
 from helpers import defer, StrictAsyncioTestCase
@@ -53,20 +54,51 @@ class TransportTests(StrictAsyncioTestCase):
             await defer(until_called=protocol.eof_received)
         protocol.eof_received.assert_called_once_with()
 
-    async def test_receive_socket_peek_reset(self) -> None:
+    async def test_receive_socket_reset(self) -> None:
+        loop = asyncio.get_running_loop()
+        for predictor in (varlink_boundaries, None):
+            with self.subTest(boundary_predictor=predictor):
+                protocol = VarlinkBaseProtocol()
+                protocol.connection_lost = Mock(return_value=None)
+                sock1, sock2 = socket.socketpair()
+                with contextlib.closing(
+                    VarlinkTransport(
+                        loop,
+                        sock1,
+                        sock1,
+                        protocol,
+                        boundary_predictor=predictor,
+                    ),
+                ) as transport:
+                    await defer()
+                    # Closing a socket with unread data makes its peer's
+                    # next receive fail with ECONNRESET.
+                    sock1.send(b"hello")
+                    sock2.close()
+                    await asyncio.wait_for(transport.closed_future, 5)
+                protocol.connection_lost.assert_called_once()
+                (exc,) = protocol.connection_lost.call_args.args
+                self.assertIsInstance(exc, ConnectionResetError)
+
+    async def test_receive_reset_after_send_failed(self) -> None:
         loop = asyncio.get_running_loop()
         protocol = VarlinkBaseProtocol()
+        protocol.connection_lost = Mock(return_value=None)
         sock1, sock2 = socket.socketpair()
+        piper, pipew = os.pipe()
+        os.close(piper)
         with contextlib.closing(
-            VarlinkTransport(loop, sock1, sock1, protocol)
+            VarlinkTransport(loop, sock1, pipew, protocol)
         ) as transport:
             await defer()
-            # Closing a socket with unread data makes its peer's next
-            # receive fail with ECONNRESET.
+            with self.assertRaises(BrokenPipeError):
+                await transport.send_message(b"hello")
             sock1.send(b"hello")
             sock2.close()
-            await defer()
-        await transport.closed_future
+            await asyncio.wait_for(transport.closed_future, 5)
+        protocol.connection_lost.assert_called_once()
+        (exc,) = protocol.connection_lost.call_args.args
+        self.assertIsInstance(exc, ConnectionResetError)
 
     async def test_receive_pipe(self) -> None:
         loop = asyncio.get_running_loop()

@@ -131,7 +131,12 @@ class VarlinkClientProtocol(VarlinkProtocol):
         try:
             self._pending.append(pending)
             # We may pipeline calls here.
-            await self.send_message(call.tojson(), fds, autoclose=False)
+            try:
+                await self.send_message(call.tojson(), fds, autoclose=False)
+            except:
+                # Otherwise, the loop reports an unhandled exception.
+                pending.future.cancel()
+                raise
             return await pending.future
         finally:
             if replyfdsdone is None:

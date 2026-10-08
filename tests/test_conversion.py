@@ -184,7 +184,9 @@ class ConversionTests(unittest.TestCase):
         obj = data.draw(representable(vt))
         sentinel = object()
         fdarray = FileDescriptorArray(initial_referee=sentinel)
-        oobto: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdarray}
+        oobto: dict[type[VarlinkType], typing.Any] = {
+            FileDescriptorVarlinkType: fdarray
+        }
         val = vt.tojson(obj, oobto)
         # We don't have to dispose obj as its MockedFds don't check __del__,
         # but we want the array to be checked.
@@ -193,7 +195,9 @@ class ConversionTests(unittest.TestCase):
             self.assertIsInstance(fd.fd, MockedFd)
             assert isinstance(fd.fd, MockedFd)  # help mypy
             fd.fd = MockedFd(fd.fd.fd, check_del=True)
-        oobfrom: dict[type, typing.Any] = {FileDescriptorVarlinkType: fdarray}
+        oobfrom: dict[type[VarlinkType], typing.Any] = {
+            FileDescriptorVarlinkType: fdarray
+        }
         obj_again = vt.fromjson(val, oobfrom)
         self.assertEqual(obj, obj_again)
         close_all_fds(obj_again)

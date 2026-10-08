@@ -23,7 +23,6 @@ from asyncvarlink import (
     VarlinkInterface,
     VarlinkInterfaceRegistry,
     varlinkmethod,
-    VarlinkMethodCall,
     VarlinkTransport,
 )
 from asyncvarlink.serviceinterface import VarlinkServiceInterface

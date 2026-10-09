@@ -248,9 +248,10 @@ def varlinkmethod(
     parameter. Note that the return_type should be the element type for
     generators.
 
-    If the function is a generator (async or not), AnnotatedResult instances
-    are forwarded immediately. They must correctly indicate whether the
-    generator produces another element by setting the continues field
+    If the function is a generator (async or not), its return type annotation
+    must reflect this via Iterator or AsyncIterator.  Yielded AnnotatedResult
+    instances are forwarded immediately. They must correctly indicate whether
+    the generator produces another element by setting the continues field
     appropriately. If delay_generator is True, other values will be delayed
     until the next element is produced (and thus the continues field for the
     previous element is known). Otherwise, all values are forwarded immediately

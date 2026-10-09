@@ -1,6 +1,6 @@
 [project]
 name = "asyncvarlink"
-version = "0.3.2"
+version = "0.3.3"
 description = "asyncio-compatible, type-driven varlink implementation supporting file descriptor passing"
 readme = "README.md"
 license = "LGPL-2.0-or-later"

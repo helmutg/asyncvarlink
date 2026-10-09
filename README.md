@@ -103,7 +103,8 @@ Collaboration
 The primary means of collaborating on this project is
 [github](https://github.com/helmutg/asyncvarlink). If you prefer not to use a
 centralized forge, sending inquiries and patches to
-[Helmut](mailto:helmut@subdivi.de?Subject=asyncvarlink) is also welcome.
+[Helmut](mailto:helmut@subdivi.de?Subject=asyncvarlink) is also welcome. Please
+refer to `HACKING.md` for more information on development processes.
 
 License
 =======
